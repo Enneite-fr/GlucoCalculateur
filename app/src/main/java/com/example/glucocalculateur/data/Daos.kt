@@ -1,6 +1,14 @@
 package com.example.glucocalculateur.data
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Embedded
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Relation
+import androidx.room.Transaction
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -32,16 +40,9 @@ interface FoodDao {
 
 @Dao
 interface RecipeDao {
-    @Query("SELECT * FROM recipes ORDER BY name ASC")
-    fun getAllRecipes(): Flow<List<RecipeEntity>>
-
     @Transaction
     @Query("SELECT * FROM recipes ORDER BY name ASC")
     fun getAllRecipesWithComponents(): Flow<List<RecipeWithComponents>>
-
-    @Transaction
-    @Query("SELECT * FROM recipes WHERE id = :recipeId")
-    suspend fun getRecipeWithComponents(recipeId: Long): RecipeWithComponents
 
     @Query("SELECT * FROM recipes WHERE name = :name LIMIT 1")
     suspend fun getRecipeByNameSync(name: String): RecipeEntity?

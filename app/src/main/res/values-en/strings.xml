@@ -67,4 +67,15 @@
     <string name="technologies_label">Technologies used:</string>
     <string name="ai_designed_text">This application was designed entirely using AI.</string>
     <string name="technologies_list">Kotlin, Jetpack Compose, Material 3, Room, Coroutines &amp; Flow</string>
+    <string name="food_csv_section">Food Management (CSV)</string>
+    <string name="recipe_csv_section">Recipe Management (CSV)</string>
+    <string name="backup_json_section">Full Backup (JSON)</string>
+    <string name="export_btn">Export</string>
+    <string name="import_btn">Import</string>
+    <string name="food_csv_format_hint">Format: Name ; Carbs (per 100g)</string>
+    <string name="recipe_csv_format_hint">Format: Recipe Name ; Ingredient ; Weight (g)</string>
+    <string name="export_json_title">Export JSON</string>
+    <string name="export_json_subtitle">Full backup of foods and recipes</string>
+    <string name="import_json_title">Import JSON</string>
+    <string name="import_json_subtitle">Restore from a JSON file</string>
 </resources>

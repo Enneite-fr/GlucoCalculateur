@@ -1,24 +1,44 @@
 package com.example.glucocalculateur.ui.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.glucocalculateur.R
 
 enum class SortOption(val labelRes: Int) {
-    NAME_ASC(com.example.glucocalculateur.R.string.sort_name_asc),
-    NAME_DESC(com.example.glucocalculateur.R.string.sort_name_desc),
-    CARBS_ASC(com.example.glucocalculateur.R.string.sort_carbs_asc),
-    CARBS_DESC(com.example.glucocalculateur.R.string.sort_carbs_desc)
+    NAME_ASC(R.string.sort_name_asc),
+    NAME_DESC(R.string.sort_name_desc),
+    CARBS_ASC(R.string.sort_carbs_asc),
+    CARBS_DESC(R.string.sort_carbs_desc)
 }
 
 @Composable
@@ -48,7 +68,7 @@ fun FilterBar(
                 IconButton(onClick = onSettingsClick) {
                     Icon(
                         imageVector = Icons.Default.Settings,
-                        contentDescription = stringResource(id = com.example.glucocalculateur.R.string.tab_settings),
+                        contentDescription = stringResource(id = R.string.tab_settings),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -60,12 +80,12 @@ fun FilterBar(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(id = com.example.glucocalculateur.R.string.search_placeholder)) },
+                placeholder = { Text(stringResource(id = R.string.search_placeholder)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = stringResource(id = com.example.glucocalculateur.R.string.clear))
+                            Icon(Icons.Default.Clear, contentDescription = stringResource(id = R.string.clear))
                         }
                     }
                 },
@@ -82,7 +102,7 @@ fun FilterBar(
                 IconButton(onClick = { expanded = true }) {
                     Icon(
                         imageVector = Icons.Default.SwapVert,
-                        contentDescription = stringResource(id = com.example.glucocalculateur.R.string.sort_btn_desc)
+                        contentDescription = stringResource(id = R.string.sort_btn_desc)
                     )
                 }
                 DropdownMenu(

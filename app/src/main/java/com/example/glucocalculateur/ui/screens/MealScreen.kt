@@ -5,16 +5,51 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,13 +57,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
 import com.example.glucocalculateur.data.MealWithItems
 import com.example.glucocalculateur.data.RecipeWithComponents
+import com.example.glucocalculateur.ui.CarbCalculator
 import com.example.glucocalculateur.ui.Formatter
+import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,11 +79,10 @@ fun MealScreen(
     availableRecipes: List<RecipeWithComponents>,
     onDeleteMeal: (MealWithItems) -> Unit,
     onSettingsClick: () -> Unit,
-    viewModel: com.example.glucocalculateur.ui.GlucoCalculateurViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    viewModel: GlucoCalculateurViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     val language by viewModel.language.collectAsState()
     
-    // On utilise key pour forcer la recréation du state et du composant lors d'un changement de langue
     key(language) {
         MealScreenContent(
             meals = meals,
@@ -63,7 +103,7 @@ private fun MealScreenContent(
     availableRecipes: List<RecipeWithComponents>,
     onDeleteMeal: (MealWithItems) -> Unit,
     onSettingsClick: () -> Unit,
-    viewModel: com.example.glucocalculateur.ui.GlucoCalculateurViewModel
+    viewModel: GlucoCalculateurViewModel
 ) {
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = System.currentTimeMillis()
@@ -73,7 +113,10 @@ private fun MealScreenContent(
 
     var mealToDelete by remember { mutableStateOf<MealWithItems?>(null) }
     var mealToEdit by remember { mutableStateOf<MealWithItems?>(null) }
-    var showFullCalendar by remember { mutableStateOf(false) }
+    var showFullCalendar by rememberSaveable { mutableStateOf(false) }
+
+    val foodMap = remember(availableFood) { availableFood.associateBy { it.id } }
+    val recipeMap = remember(availableRecipes) { availableRecipes.associateBy { it.recipe.id } }
 
     if (showFullCalendar) {
         val pickerState = rememberDatePickerState(
@@ -86,12 +129,12 @@ private fun MealScreenContent(
                     datePickerState.selectedDateMillis = pickerState.selectedDateMillis
                     showFullCalendar = false
                 }) {
-                    Text(stringResource(id = com.example.glucocalculateur.R.string.validate_btn))
+                    Text(stringResource(id = R.string.validate_btn))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showFullCalendar = false }) {
-                    Text(stringResource(id = com.example.glucocalculateur.R.string.cancel))
+                    Text(stringResource(id = R.string.cancel))
                 }
             }
         ) {
@@ -115,8 +158,8 @@ private fun MealScreenContent(
     if (mealToDelete != null) {
         AlertDialog(
             onDismissRequest = { mealToDelete = null },
-            title = { Text(stringResource(id = com.example.glucocalculateur.R.string.delete_meal_confirm_title)) },
-            text = { Text(stringResource(id = com.example.glucocalculateur.R.string.delete_confirm_msg, mealToDelete?.meal?.name ?: "")) },
+            title = { Text(stringResource(id = R.string.delete_meal_confirm_title)) },
+            text = { Text(stringResource(id = R.string.delete_confirm_msg, mealToDelete?.meal?.name ?: "")) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -125,12 +168,12 @@ private fun MealScreenContent(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text(stringResource(id = com.example.glucocalculateur.R.string.delete))
+                    Text(stringResource(id = R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { mealToDelete = null }) {
-                    Text(stringResource(id = com.example.glucocalculateur.R.string.cancel))
+                    Text(stringResource(id = R.string.cancel))
                 }
             }
         )
@@ -156,7 +199,6 @@ private fun MealScreenContent(
                 timeInMillis = selectedMillis
             }
             
-            // On cherche la clé correspondante (en local)
             val targetDateMillis = Calendar.getInstance().apply {
                 set(Calendar.YEAR, selectedCalendar.get(Calendar.YEAR))
                 set(Calendar.MONTH, selectedCalendar.get(Calendar.MONTH))
@@ -167,7 +209,6 @@ private fun MealScreenContent(
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
 
-            // Trouver l'index dans la LazyColumn
             var index = 0
             for (date in groupedMeals.keys) {
                 if (date == targetDateMillis) {
@@ -182,7 +223,6 @@ private fun MealScreenContent(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Barre de contrôle supérieure (Paramètres)
         Surface(
             modifier = Modifier.fillMaxWidth(),
             tonalElevation = 2.dp,
@@ -192,18 +232,18 @@ private fun MealScreenContent(
                 modifier = Modifier
                     .padding(horizontal = 8.dp)
                     .fillMaxWidth()
-                    .height(72.dp), // Hauteur cohérente avec FilterBar
+                    .height(72.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onSettingsClick) {
                     Icon(
                         imageVector = Icons.Default.Settings,
-                        contentDescription = stringResource(id = com.example.glucocalculateur.R.string.tab_settings),
+                        contentDescription = stringResource(id = R.string.tab_settings),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
-                    text = stringResource(id = com.example.glucocalculateur.R.string.my_meals_title),
+                    text = stringResource(id = R.string.my_meals_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(start = 8.dp),
                     color = MaterialTheme.colorScheme.onSurface
@@ -213,7 +253,6 @@ private fun MealScreenContent(
 
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Calendrier compact et flottant
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -227,7 +266,6 @@ private fun MealScreenContent(
                     )
                 }
 
-                // Moitié inférieure : Liste des repas
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -256,12 +294,12 @@ private fun MealScreenContent(
                             }
                         }
 
-                        items(mealsForDate) { meal ->
+                        items(mealsForDate, key = { it.meal.id }) { meal ->
                             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 MealItem(
                                     mealWithItems = meal,
-                                    availableFood = availableFood,
-                                    availableRecipes = availableRecipes,
+                                    foodMap = foodMap,
+                                    recipeMap = recipeMap,
                                     onEdit = { mealToEdit = meal },
                                     onDelete = { mealToDelete = meal }
                                 )
@@ -278,7 +316,7 @@ private fun MealScreenContent(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = stringResource(id = com.example.glucocalculateur.R.string.no_meals_saved),
+                                    text = stringResource(id = R.string.no_meals_saved),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -302,6 +340,7 @@ fun HorizontalCalendar(
         Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
     }
     
+    // Stabilise la vue calendrier autour de la date
     val dateList = remember(selectedDateMillis) {
         (-3..3).map { offset ->
             Calendar.getInstance().apply {
@@ -353,7 +392,7 @@ fun HorizontalCalendar(
             ) {
                 dateList.forEach { dateMillis ->
                     val dateCal = Calendar.getInstance().apply { timeInMillis = dateMillis }
-                    val isSelected = isSameDay(dateMillis, selectedDateMillis)
+                    val isSelected = isSameDay(dateCal, calendar)
                     val dayName = SimpleDateFormat("EEE", Locale.getDefault()).format(dateCal.time)
                         .take(1).uppercase()
                     val dayNumber = dateCal.get(Calendar.DAY_OF_MONTH).toString()
@@ -384,9 +423,7 @@ fun HorizontalCalendar(
     }
 }
 
-private fun isSameDay(m1: Long, m2: Long): Boolean {
-    val c1 = Calendar.getInstance().apply { timeInMillis = m1 }
-    val c2 = Calendar.getInstance().apply { timeInMillis = m2 }
+private fun isSameDay(c1: Calendar, c2: Calendar): Boolean {
     return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
            c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
 }
@@ -395,29 +432,15 @@ private fun isSameDay(m1: Long, m2: Long): Boolean {
 @Composable
 fun MealItem(
     mealWithItems: MealWithItems,
-    availableFood: List<FoodEntity>,
-    availableRecipes: List<RecipeWithComponents>,
+    foodMap: Map<Long, FoodEntity>,
+    recipeMap: Map<Long, RecipeWithComponents>,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     
-    val totalCarbs = mealWithItems.items.sumOf { item ->
-        if (item.foodId != null) {
-            val food = availableFood.find { it.id == item.foodId }
-            if (food != null) (food.carbsPer100g / 100.0) * item.weightGrams else 0.0
-        } else if (item.recipeId != null) {
-            val recipe = availableRecipes.find { it.recipe.id == item.recipeId }
-            if (recipe != null) {
-                val rTotalWeight = recipe.components.sumOf { it.weightGrams }
-                val rTotalCarbs = recipe.components.sumOf { comp ->
-                    val food = availableFood.find { it.id == comp.foodId }
-                    if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
-                }
-                val rCarbsPer100g = if (rTotalWeight > 0) (rTotalCarbs / rTotalWeight) * 100.0 else 0.0
-                (rCarbsPer100g / 100.0) * item.weightGrams
-            } else 0.0
-        } else 0.0
+    val totalCarbs = remember(mealWithItems.items, foodMap, recipeMap) {
+        CarbCalculator.calculateMealTotalCarbs(mealWithItems.items, foodMap, recipeMap)
     }
 
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
@@ -452,7 +475,7 @@ fun MealItem(
                     Text(text = mealWithItems.meal.name, style = MaterialTheme.typography.titleMedium)
                     Text(text = dateString, style = MaterialTheme.typography.bodySmall)
                     Text(
-                        text = stringResource(id = com.example.glucocalculateur.R.string.total_carbs_prefix, Formatter.formatDouble(totalCarbs)),
+                        text = stringResource(id = R.string.total_carbs_prefix, Formatter.formatDouble(totalCarbs)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
@@ -461,39 +484,27 @@ fun MealItem(
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(id = com.example.glucocalculateur.R.string.delete)
+                        contentDescription = stringResource(id = R.string.delete)
                     )
                 }
             }
 
             if (expanded) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Text(stringResource(id = com.example.glucocalculateur.R.string.meal_details_title), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(id = R.string.meal_details_title), style = MaterialTheme.typography.titleSmall)
                 mealWithItems.items.forEach { item ->
                     val label = if (item.foodId != null) {
-                        availableFood.find { it.id == item.foodId }?.name ?: stringResource(id = com.example.glucocalculateur.R.string.unknown_food)
+                        foodMap[item.foodId]?.name ?: stringResource(id = R.string.unknown_food)
+                    } else if (item.recipeId != null) {
+                        recipeMap[item.recipeId]?.recipe?.name ?: stringResource(id = R.string.unknown_recipe)
                     } else {
-                        availableRecipes.find { it.recipe.id == item.recipeId }?.recipe?.name ?: stringResource(id = com.example.glucocalculateur.R.string.unknown_recipe)
+                        stringResource(id = R.string.unknown_food)
                     }
                     
-                    val itemCarbs = if (item.foodId != null) {
-                        val food = availableFood.find { it.id == item.foodId }
-                        if (food != null) (food.carbsPer100g / 100.0) * item.weightGrams else 0.0
-                    } else if (item.recipeId != null) {
-                        val recipe = availableRecipes.find { it.recipe.id == item.recipeId }
-                        if (recipe != null) {
-                            val rTotalWeight = recipe.components.sumOf { it.weightGrams }
-                            val rTotalCarbs = recipe.components.sumOf { comp ->
-                                val food = availableFood.find { it.id == comp.foodId }
-                                if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
-                            }
-                            val rCarbsPer100g = if (rTotalWeight > 0) (rTotalCarbs / rTotalWeight) * 100.0 else 0.0
-                            (rCarbsPer100g / 100.0) * item.weightGrams
-                        } else 0.0
-                    } else 0.0
+                    val itemCarbs = CarbCalculator.calculateMealItemCarbs(item, foodMap, recipeMap)
 
                     Text(
-                        text = "• $label : ${Formatter.formatDouble(item.weightGrams)}g (${Formatter.formatDouble(itemCarbs)} ${stringResource(id = com.example.glucocalculateur.R.string.carbs_unit)})",
+                        text = "• $label : ${Formatter.formatDouble(item.weightGrams)}g (${Formatter.formatDouble(itemCarbs)} ${stringResource(id = R.string.carbs_unit)})",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

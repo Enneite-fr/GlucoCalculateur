@@ -1,44 +1,77 @@
 package com.example.glucocalculateur
 
+import android.content.Context
+import android.content.res.Resources
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.os.ConfigurationCompat
-import android.content.res.Resources
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.core.os.ConfigurationCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.glucocalculateur.ui.AppLanguage
+import com.example.glucocalculateur.ui.Formatter
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import com.example.glucocalculateur.ui.ThemeMode
 import com.example.glucocalculateur.ui.components.SpeedDialAction
 import com.example.glucocalculateur.ui.components.SpeedDialFab
-import com.example.glucocalculateur.ui.screens.*
+import com.example.glucocalculateur.ui.screens.FoodDialog
+import com.example.glucocalculateur.ui.screens.FoodScreen
+import com.example.glucocalculateur.ui.screens.MealDialog
+import com.example.glucocalculateur.ui.screens.MealScreen
+import com.example.glucocalculateur.ui.screens.RecipeDialog
+import com.example.glucocalculateur.ui.screens.RecipeScreen
+import com.example.glucocalculateur.ui.screens.SettingsScreen
 import com.example.glucocalculateur.ui.theme.GlucoCalculateurTheme
 import java.util.Locale
 
@@ -47,17 +80,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Initialiser la langue avant setContent pour éviter le clignotement
-        val prefs = getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
-        val langName = prefs.getString("app_language", "SYSTEM") ?: "SYSTEM"
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val langName = prefs.getString("app_language", AppLanguage.SYSTEM.name) ?: AppLanguage.SYSTEM.name
         try {
-            val appLang = com.example.glucocalculateur.ui.AppLanguage.valueOf(langName)
-            val locale = if (appLang == com.example.glucocalculateur.ui.AppLanguage.SYSTEM) {
+            val appLang = AppLanguage.valueOf(langName)
+            val locale = if (appLang == AppLanguage.SYSTEM) {
                 ConfigurationCompat.getLocales(Resources.getSystem().configuration)[0] ?: Locale.getDefault()
             } else {
                 Locale(appLang.code, appLang.country)
             }
-            com.example.glucocalculateur.ui.Formatter.applyLocaleToContext(this, locale)
-        } catch (e: Exception) {}
+            Formatter.applyLocaleToContext(this, locale)
+        } catch (_: Exception) {}
 
         enableEdgeToEdge()
         setContent {
@@ -74,36 +107,36 @@ class MainActivity : ComponentActivity() {
             }
             
             val context = LocalContext.current
-            val activity = context as? androidx.activity.ComponentActivity
+            val activity = context as? ComponentActivity
             
             // Appliquer la locale au niveau de l'activité pour forcer le rafraîchissement global
             LaunchedEffect(locale) {
                 val config = activity?.resources?.configuration
                 if (config != null && config.locales[0] != locale) {
-                    com.example.glucocalculateur.ui.Formatter.applyLocaleToContext(activity, locale)
+                    Formatter.applyLocaleToContext(activity, locale)
                     activity.recreate()
                 }
             }
 
             val localizedContext = remember(locale) {
-                com.example.glucocalculateur.ui.Formatter.updateResourceLocale(context, locale)
+                Formatter.updateResourceLocale(context, locale)
             }
 
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
-                ThemeMode.AUTO -> androidx.compose.foundation.isSystemInDarkTheme()
+                ThemeMode.AUTO -> isSystemInDarkTheme()
             }
 
             LaunchedEffect(darkTheme) {
                 activity?.enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(
-                        android.graphics.Color.TRANSPARENT,
-                        android.graphics.Color.TRANSPARENT,
+                        AndroidColor.TRANSPARENT,
+                        AndroidColor.TRANSPARENT,
                     ) { darkTheme },
                     navigationBarStyle = SystemBarStyle.auto(
-                        android.graphics.Color.argb(0xe6, 0xFF, 0xFF, 0xFF),
-                        android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b),
+                        AndroidColor.argb(0xe6, 0xFF, 0xFF, 0xFF),
+                        AndroidColor.argb(0x80, 0x1b, 0x1b, 0x1b),
                     ) { darkTheme }
                 )
             }
@@ -111,7 +144,7 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalConfiguration provides localizedContext.resources.configuration,
                 LocalContext provides localizedContext,
-                androidx.activity.compose.LocalActivityResultRegistryOwner provides (activity ?: androidx.activity.compose.LocalActivityResultRegistryOwner.current!!)
+                LocalActivityResultRegistryOwner provides (activity ?: LocalActivityResultRegistryOwner.current!!)
             ) {
                 GlucoCalculateurTheme(
                     darkTheme = darkTheme
@@ -129,9 +162,9 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MEALS) }
     var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
     
-    var showAddFoodDialog by remember { mutableStateOf(false) }
-    var showAddRecipeDialog by remember { mutableStateOf(false) }
-    var showAddMealDialog by remember { mutableStateOf(false) }
+    var showAddFoodDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddRecipeDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddMealDialog by rememberSaveable { mutableStateOf(false) }
     
     val foods by viewModel.allFood.collectAsState()
     val recipes by viewModel.allRecipes.collectAsState()

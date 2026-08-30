@@ -5,7 +5,14 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.glucocalculateur.data.*
+import com.example.glucocalculateur.data.AppDatabase
+import com.example.glucocalculateur.data.FoodEntity
+import com.example.glucocalculateur.data.MealEntity
+import com.example.glucocalculateur.data.MealItemEntity
+import com.example.glucocalculateur.data.MealWithItems
+import com.example.glucocalculateur.data.RecipeComponentEntity
+import com.example.glucocalculateur.data.RecipeEntity
+import com.example.glucocalculateur.data.RecipeWithComponents
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -104,45 +111,65 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
                 if (jsonString != null) {
                     val json = JSONObject(jsonString)
                     
-                    // Import foods
+                    // Import foods (upsert by name)
                     val foodArray = json.optJSONArray("foods")
                     if (foodArray != null) {
                         for (i in 0 until foodArray.length()) {
-                            val foodJson = foodArray.getJSONObject(i)
-                            val name = foodJson.getString("name")
-                            val carbs = foodJson.getDouble("carbsPer100g")
-                            foodDao.insertFood(FoodEntity(name = name, carbsPer100g = carbs))
+                            val foodJson = foodArray.optJSONObject(i) ?: continue
+                            val name = foodJson.optString("name", "").trim()
+                            val carbs = foodJson.optDouble("carbsPer100g", Double.NaN)
+                            if (name.isNotEmpty() && !carbs.isNaN()) {
+                                val existing = foodDao.getFoodByNameSync(name)
+                                if (existing != null) {
+                                    foodDao.updateFood(existing.copy(carbsPer100g = carbs))
+                                } else {
+                                    foodDao.insertFood(FoodEntity(name = name, carbsPer100g = carbs))
+                                }
+                            }
                         }
                     }
                     
-                    // Re-fetch foods to get new IDs for recipes
+                    // Re-fetch foods to get updated IDs for recipes
                     val currentFoods = foodDao.getAllFoodSync()
+                    val foodMapByName = currentFoods.associateBy { it.name.lowercase() }
                     
-                    // Import recipes
+                    // Import recipes (upsert by name)
                     val recipeArray = json.optJSONArray("recipes")
                     if (recipeArray != null) {
                         for (i in 0 until recipeArray.length()) {
-                            val recipeJson = recipeArray.getJSONObject(i)
-                            val recipeName = recipeJson.getString("name")
-                            val recipeId = recipeDao.insertRecipe(RecipeEntity(name = recipeName))
+                            val recipeJson = recipeArray.optJSONObject(i) ?: continue
+                            val recipeName = recipeJson.optString("name", "").trim()
+                            if (recipeName.isEmpty()) continue
+
+                            var recipeId = recipeDao.getRecipeByNameSync(recipeName)?.id
+                            if (recipeId == null) {
+                                recipeId = recipeDao.insertRecipe(RecipeEntity(name = recipeName))
+                            } else {
+                                recipeDao.updateRecipe(RecipeEntity(id = recipeId, name = recipeName))
+                                recipeDao.deleteRecipeComponents(recipeId)
+                            }
                             
-                            val componentsArray = recipeJson.getJSONArray("components")
-                            val componentEntities = mutableListOf<RecipeComponentEntity>()
-                            for (j in 0 until componentsArray.length()) {
-                                val compJson = componentsArray.getJSONObject(j)
-                                val foodName = compJson.getString("foodName")
-                                val weight = compJson.getDouble("weightGrams")
-                                
-                                val food = currentFoods.find { it.name == foodName }
-                                if (food != null) {
-                                    componentEntities.add(RecipeComponentEntity(
-                                        recipeId = recipeId,
-                                        foodId = food.id,
-                                        weightGrams = weight
-                                    ))
+                            val componentsArray = recipeJson.optJSONArray("components")
+                            if (componentsArray != null) {
+                                val componentEntities = mutableListOf<RecipeComponentEntity>()
+                                for (j in 0 until componentsArray.length()) {
+                                    val compJson = componentsArray.optJSONObject(j) ?: continue
+                                    val foodName = compJson.optString("foodName", "").trim()
+                                    val weight = compJson.optDouble("weightGrams", 0.0)
+                                    
+                                    val food = foodMapByName[foodName.lowercase()]
+                                    if (food != null && weight > 0) {
+                                        componentEntities.add(RecipeComponentEntity(
+                                            recipeId = recipeId,
+                                            foodId = food.id,
+                                            weightGrams = weight
+                                        ))
+                                    }
+                                }
+                                if (componentEntities.isNotEmpty()) {
+                                    recipeDao.insertRecipeComponents(componentEntities)
                                 }
                             }
-                            recipeDao.insertRecipeComponents(componentEntities)
                         }
                     }
                 }
@@ -175,7 +202,6 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
                 val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
                 val bytes = inputStream.readBytes()
                 
-                // Détection simplifiée : si UTF-8 produit des caractères invalides (), on bascule sur ISO-8859-1
                 val utf8Content = String(bytes, Charsets.UTF_8)
                 val content = if (utf8Content.contains("\uFFFD")) {
                     String(bytes, charset("ISO-8859-1"))
@@ -184,7 +210,6 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
                 }
 
                 content.lineSequence().forEach { rawLine ->
-                    // Nettoyage de la ligne : suppression des guillemets éventuels et des espaces
                     val line = rawLine.trim().removeSurrounding("\"")
                     if (line.isBlank() || line.startsWith("#")) return@forEach
                     
@@ -192,9 +217,9 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
                     if (parts.size >= 2) {
                         val name = parts[0].trim().removeSurrounding("\"").trim()
                         val carbsPart = parts[1].trim().removeSurrounding("\"").trim().replace(",", ".")
-                        val carbs = carbsPart.toDoubleOrNull() ?: 0.0
+                        val carbs = carbsPart.toDoubleOrNull() ?: return@forEach // Ignore header lines and invalid entries
                         
-                        if (name.isNotEmpty()) {
+                        if (name.isNotEmpty() && carbs >= 0) {
                             val existing = foodDao.getFoodByNameSync(name)
                             if (existing != null) {
                                 foodDao.updateFood(existing.copy(carbsPer100g = carbs))
@@ -215,11 +240,12 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
             try {
                 val recipes = allRecipes.value
                 val foods = foodDao.getAllFoodSync()
+                val foodMap = foods.associateBy { it.id }
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.bufferedWriter().use { writer ->
                         recipes.forEach { recipe ->
                             recipe.components.forEach { comp ->
-                                val foodName = foods.find { it.id == comp.foodId }?.name ?: "Inconnu"
+                                val foodName = foodMap[comp.foodId]?.name ?: "Inconnu"
                                 writer.write("${recipe.recipe.name};${foodName};${comp.weightGrams}\n")
                             }
                         }
@@ -235,18 +261,19 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val currentFoods = foodDao.getAllFoodSync()
+                val foodMapByName = currentFoods.associateBy { it.name.lowercase() }
                 val recipeData = mutableMapOf<String, MutableList<Pair<String, Double>>>()
                 
                 context.contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
                     lines.forEach { line ->
-                        if (line.isBlank()) return@forEach
+                        if (line.isBlank() || line.startsWith("#")) return@forEach
                         val parts = line.split(";")
                         if (parts.size >= 3) {
-                            val recipeName = parts[0].trim()
-                            val foodName = parts[1].trim()
-                            val weight = parts[2].trim().replace(",", ".").toDoubleOrNull() ?: 0.0
+                            val recipeName = parts[0].trim().removeSurrounding("\"").trim()
+                            val foodName = parts[1].trim().removeSurrounding("\"").trim()
+                            val weight = parts[2].trim().removeSurrounding("\"").replace(",", ".").toDoubleOrNull() ?: return@forEach // Ignore header lines
                             
-                            if (recipeName.isNotEmpty()) {
+                            if (recipeName.isNotEmpty() && foodName.isNotEmpty() && weight > 0) {
                                 recipeData.getOrPut(recipeName) { mutableListOf() }.add(foodName to weight)
                             }
                         }
@@ -263,14 +290,16 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
                     }
                     
                     val componentEntities = components.mapNotNull { (foodName, weight) ->
-                        val food = currentFoods.find { it.name == foodName }
+                        val food = foodMapByName[foodName.lowercase()]
                         if (food != null) {
-                            RecipeComponentEntity(recipeId = recipeId!!, foodId = food.id, weightGrams = weight)
+                            RecipeComponentEntity(recipeId = recipeId, foodId = food.id, weightGrams = weight)
                         } else {
                             null
                         }
                     }
-                    recipeDao.insertRecipeComponents(componentEntities)
+                    if (componentEntities.isNotEmpty()) {
+                        recipeDao.insertRecipeComponents(componentEntities)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

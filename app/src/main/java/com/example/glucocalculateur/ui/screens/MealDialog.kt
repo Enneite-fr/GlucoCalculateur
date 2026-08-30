@@ -1,18 +1,52 @@
 package com.example.glucocalculateur.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -27,6 +61,8 @@ import com.example.glucocalculateur.ui.components.SortOption
 import com.example.glucocalculateur.ui.components.WeightInputDialog
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,26 +73,26 @@ fun MealDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, Long, List<Triple<Long?, Long?, Double>>) -> Unit
 ) {
-    val calendar = remember { 
+    val initialCalendar = remember { 
         Calendar.getInstance().apply {
             mealWithItems?.meal?.dateTimestamp?.let { timeInMillis = it }
         }
     }
     
-    var name by remember { mutableStateOf(mealWithItems?.meal?.name ?: "") }
-    // Si nouveau repas, on attendra l'effet de bord pour le nom par défaut si on veut être précis,
-    // mais on peut aussi le faire ici une fois au début.
-    if (name.isEmpty() && mealWithItems == null) {
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-        name = when {
+    val defaultName = if (mealWithItems == null) {
+        val hour = initialCalendar.get(Calendar.HOUR_OF_DAY)
+        when {
             hour in 6..9 -> stringResource(id = R.string.breakfast)
             hour in 10..13 -> stringResource(id = R.string.lunch)
             hour in 18..21 -> stringResource(id = R.string.dinner)
             else -> stringResource(id = R.string.snack)
         }
+    } else {
+        mealWithItems.meal.name
     }
-
-    var selectedTimestamp by remember { mutableLongStateOf(calendar.timeInMillis) }
+    
+    var name by rememberSaveable { mutableStateOf(defaultName) }
+    var selectedTimestamp by rememberSaveable { mutableLongStateOf(initialCalendar.timeInMillis) }
     
     val selectedItems = remember { 
         mutableStateListOf<Triple<Long?, Long?, Double>>().apply {

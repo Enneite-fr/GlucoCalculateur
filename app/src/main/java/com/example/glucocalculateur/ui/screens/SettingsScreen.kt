@@ -1,11 +1,21 @@
 package com.example.glucocalculateur.ui.screens
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.core.net.toUri
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,13 +23,29 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import com.example.glucocalculateur.R
 import com.example.glucocalculateur.ui.AppLanguage
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import com.example.glucocalculateur.ui.ThemeMode
@@ -74,9 +100,9 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Section Apparence
-        SettingsSection(title = stringResource(id = com.example.glucocalculateur.R.string.appearance_section)) {
+        SettingsSection(title = stringResource(id = R.string.appearance_section)) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(id = com.example.glucocalculateur.R.string.display_mode), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(id = R.string.display_mode), style = MaterialTheme.typography.bodyMedium)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     ThemeMode.entries.forEachIndexed { index, mode ->
                         SegmentedButton(
@@ -85,9 +111,9 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
                             label = {
                                 Text(when (mode) {
-                                    ThemeMode.LIGHT -> stringResource(id = com.example.glucocalculateur.R.string.theme_light)
-                                    ThemeMode.DARK -> stringResource(id = com.example.glucocalculateur.R.string.theme_dark)
-                                    ThemeMode.AUTO -> stringResource(id = com.example.glucocalculateur.R.string.theme_auto)
+                                    ThemeMode.LIGHT -> stringResource(id = R.string.theme_light)
+                                    ThemeMode.DARK -> stringResource(id = R.string.theme_dark)
+                                    ThemeMode.AUTO -> stringResource(id = R.string.theme_auto)
                                 })
                             }
                         )
@@ -97,7 +123,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
         }
 
         // Section Langue
-        SettingsSection(title = stringResource(id = com.example.glucocalculateur.R.string.language_region_section)) {
+        SettingsSection(title = stringResource(id = R.string.language_region_section)) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppLanguage.entries.forEach { lang ->
                     Surface(
@@ -119,7 +145,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     }
                 }
                 Text(
-                    text = stringResource(id = com.example.glucocalculateur.R.string.number_format_note),
+                    text = stringResource(id = R.string.number_format_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)
@@ -128,7 +154,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
         }
 
         // Section Aliments (CSV)
-        SettingsSection(title = "Gestion des Aliments (CSV)") {
+        SettingsSection(title = stringResource(id = R.string.food_csv_section)) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
@@ -138,7 +164,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Exporter")
+                        Text(stringResource(id = R.string.export_btn))
                     }
 
                     OutlinedButton(
@@ -148,15 +174,19 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     ) {
                         Icon(Icons.Default.Upload, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Importer")
+                        Text(stringResource(id = R.string.import_btn))
                     }
                 }
-                Text("Format : Nom ; Glucides (pour 100g)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = stringResource(id = R.string.food_csv_format_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
         // Section Recettes (CSV)
-        SettingsSection(title = "Gestion des Recettes (CSV)") {
+        SettingsSection(title = stringResource(id = R.string.recipe_csv_section)) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
@@ -166,7 +196,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Exporter")
+                        Text(stringResource(id = R.string.export_btn))
                     }
 
                     OutlinedButton(
@@ -176,15 +206,19 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     ) {
                         Icon(Icons.Default.Upload, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Importer")
+                        Text(stringResource(id = R.string.import_btn))
                     }
                 }
-                Text("Format : Nom Recette ; Ingrédient ; Poids (g)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = stringResource(id = R.string.recipe_csv_format_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
         // Section Sauvegarde complète (JSON)
-        SettingsSection(title = "Sauvegarde complète (JSON)") {
+        SettingsSection(title = stringResource(id = R.string.backup_json_section)) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(
                     onClick = { exportJsonLauncher.launch("gluco_data.json") },
@@ -194,8 +228,8 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     Icon(Icons.Default.Download, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
-                        Text("Exporter JSON", style = MaterialTheme.typography.bodyLarge)
-                        Text("Sauvegarde complète des aliments et recettes", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(id = R.string.export_json_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(id = R.string.export_json_subtitle), style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -207,8 +241,8 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     Icon(Icons.Default.Upload, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
-                        Text("Importer JSON", style = MaterialTheme.typography.bodyLarge)
-                        Text("Restaurer depuis un fichier JSON", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(id = R.string.import_json_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(id = R.string.import_json_subtitle), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -217,38 +251,43 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
         // Section Crédits
         val packageInfo = remember {
             try {
-                context.packageManager.getPackageInfo(context.packageName, 0)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
             } catch (_: Exception) {
                 null
             }
         }
         val versionName = packageInfo?.versionName ?: "1.0"
 
-        SettingsSection(title = stringResource(id = com.example.glucocalculateur.R.string.credits_section)) {
+        SettingsSection(title = stringResource(id = R.string.credits_section)) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(bottom = 16.dp)
             ) {
                 Text(
-                    text = stringResource(id = com.example.glucocalculateur.R.string.version_label, versionName),
+                    text = stringResource(id = R.string.version_label, versionName),
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text = stringResource(id = com.example.glucocalculateur.R.string.ai_designed_text),
+                    text = stringResource(id = R.string.ai_designed_text),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
 
                 Column {
                     Text(
-                        text = stringResource(id = com.example.glucocalculateur.R.string.technologies_label),
+                        text = stringResource(id = R.string.technologies_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = stringResource(id = com.example.glucocalculateur.R.string.technologies_list),
+                        text = stringResource(id = R.string.technologies_list),
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -268,9 +307,9 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(id = com.example.glucocalculateur.R.string.github_link),
+                        text = stringResource(id = R.string.github_link),
                         style = MaterialTheme.typography.bodyMedium,
-                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                        textDecoration = TextDecoration.Underline
                     )
                 }
             }

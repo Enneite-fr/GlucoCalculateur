@@ -1,25 +1,47 @@
 package com.example.glucocalculateur.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.border
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
 import com.example.glucocalculateur.data.RecipeWithComponents
+import com.example.glucocalculateur.ui.CarbCalculator
 import com.example.glucocalculateur.ui.Formatter
 
 @Composable
@@ -65,7 +87,7 @@ fun FoodSelectionList(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(filteredAndSortedFoods) { food ->
+            items(filteredAndSortedFoods, key = { it.id }) { food ->
                 FoodSelectionItem(
                     food = food,
                     onClick = { onFoodClick(food) },
@@ -145,7 +167,9 @@ fun RecipeSelectionList(
     showSettings: Boolean = true,
     onSettingsClick: () -> Unit = {}
 ) {
-    val filteredAndSortedRecipes = remember(recipes, availableFood, searchQuery, selectedSort) {
+    val foodMap = remember(availableFood) { availableFood.associateBy { it.id } }
+
+    val filteredAndSortedRecipes = remember(recipes, foodMap, searchQuery, selectedSort) {
         val filtered = if (searchQuery.isBlank()) {
             recipes
         } else {
@@ -153,12 +177,7 @@ fun RecipeSelectionList(
         }
 
         val recipesWithCarbs = filtered.map { recipeWithComponents ->
-            val totalWeight = recipeWithComponents.components.sumOf { it.weightGrams }
-            val totalCarbs = recipeWithComponents.components.sumOf { comp ->
-                val food = availableFood.find { it.id == comp.foodId }
-                if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
-            }
-            val carbsPer100g = if (totalWeight > 0) (totalCarbs / totalWeight) * 100.0 else 0.0
+            val carbsPer100g = CarbCalculator.calculateRecipeCarbsPer100g(recipeWithComponents.components, foodMap)
             recipeWithComponents to carbsPer100g
         }
 
@@ -185,10 +204,10 @@ fun RecipeSelectionList(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(filteredAndSortedRecipes) { recipe ->
+            items(filteredAndSortedRecipes, key = { it.recipe.id }) { recipe ->
                 RecipeSelectionItem(
                     recipeWithComponents = recipe,
-                    availableFood = availableFood,
+                    foodMap = foodMap,
                     onClick = { onRecipeClick(recipe) },
                     onLongClick = onRecipeLongClick?.let { { it(recipe) } },
                     onDelete = onDeleteRecipe?.let { { it(recipe) } }
@@ -202,19 +221,19 @@ fun RecipeSelectionList(
 @Composable
 fun RecipeSelectionItem(
     recipeWithComponents: RecipeWithComponents,
-    availableFood: List<FoodEntity>,
+    foodMap: Map<Long, FoodEntity>,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     
-    val totalWeight = recipeWithComponents.components.sumOf { it.weightGrams }
-    val totalCarbs = recipeWithComponents.components.sumOf { comp ->
-        val food = availableFood.find { it.id == comp.foodId }
-        if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
+    val totalWeight = remember(recipeWithComponents.components) {
+        CarbCalculator.calculateRecipeTotalWeight(recipeWithComponents.components)
     }
-    val carbsPer100g = if (totalWeight > 0) (totalCarbs / totalWeight) * 100.0 else 0.0
+    val carbsPer100g = remember(recipeWithComponents.components, foodMap) {
+        CarbCalculator.calculateRecipeCarbsPer100g(recipeWithComponents.components, foodMap)
+    }
 
     ElevatedCard(
         modifier = Modifier
@@ -266,7 +285,7 @@ fun RecipeSelectionItem(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Text(stringResource(id = R.string.composition_title), style = MaterialTheme.typography.titleSmall)
                 recipeWithComponents.components.forEach { comp ->
-                    val food = availableFood.find { it.id == comp.foodId }
+                    val food = foodMap[comp.foodId]
                     val itemCarbs = if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
                     Text(
                         text = "• ${food?.name ?: stringResource(id = R.string.unknown_food)} : ${Formatter.formatDouble(comp.weightGrams)}g (${Formatter.formatDouble(itemCarbs)} ${stringResource(id = R.string.carbs_unit)})",
@@ -289,7 +308,7 @@ fun WeightInputDialog(
     onDismiss: () -> Unit,
     onConfirm: (Double) -> Unit
 ) {
-    var weight by remember { mutableStateOf("") }
+    var weight by rememberSaveable { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
