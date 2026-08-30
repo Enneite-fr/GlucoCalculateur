@@ -3,9 +3,9 @@ package com.example.glucocalculateur.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,45 +14,158 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
+import com.example.glucocalculateur.data.MealWithItems
 import com.example.glucocalculateur.data.RecipeWithComponents
 import com.example.glucocalculateur.ui.Formatter
+import com.example.glucocalculateur.ui.components.FoodSelectionList
+import com.example.glucocalculateur.ui.components.RecipeSelectionList
+import com.example.glucocalculateur.ui.components.SortOption
+import com.example.glucocalculateur.ui.components.WeightInputDialog
+import java.text.SimpleDateFormat
 import java.util.Calendar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddMealDialog(
+fun MealDialog(
+    mealWithItems: MealWithItems? = null,
     availableFood: List<FoodEntity>,
     availableRecipes: List<RecipeWithComponents>,
     onDismiss: () -> Unit,
-    onConfirm: (String, List<Triple<Long?, Long?, Double>>) -> Unit
+    onConfirm: (String, Long, List<Triple<Long?, Long?, Double>>) -> Unit
 ) {
-    val defaultName = remember {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        when {
-            hour in 6..9 -> "Petit Déjeuner"
-            hour in 10..13 -> "Déjeuner"
-            hour in 18..21 -> "Diner"
-            else -> "Collation"
+    val calendar = remember { 
+        Calendar.getInstance().apply {
+            mealWithItems?.meal?.dateTimestamp?.let { timeInMillis = it }
         }
     }
-    var name by remember { mutableStateOf(defaultName) }
-    val selectedItems = remember { mutableStateListOf<Triple<Long?, Long?, Double>>() }
+    
+    var name by remember { mutableStateOf(mealWithItems?.meal?.name ?: "") }
+    // Si nouveau repas, on attendra l'effet de bord pour le nom par défaut si on veut être précis,
+    // mais on peut aussi le faire ici une fois au début.
+    if (name.isEmpty() && mealWithItems == null) {
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        name = when {
+            hour in 6..9 -> stringResource(id = R.string.breakfast)
+            hour in 10..13 -> stringResource(id = R.string.lunch)
+            hour in 18..21 -> stringResource(id = R.string.dinner)
+            else -> stringResource(id = R.string.snack)
+        }
+    }
+
+    var selectedTimestamp by remember { mutableLongStateOf(calendar.timeInMillis) }
+    
+    val selectedItems = remember { 
+        mutableStateListOf<Triple<Long?, Long?, Double>>().apply {
+            mealWithItems?.items?.forEach { item ->
+                add(Triple(item.foodId, item.recipeId, item.weightGrams))
+            }
+        }
+    }
     
     var showItemPicker by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedTimestamp)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val dateCal = Calendar.getInstance().apply { 
+                        timeInMillis = datePickerState.selectedDateMillis ?: selectedTimestamp 
+                    }
+                    val currentCal = Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
+                    currentCal.set(Calendar.YEAR, dateCal.get(Calendar.YEAR))
+                    currentCal.set(Calendar.MONTH, dateCal.get(Calendar.MONTH))
+                    currentCal.set(Calendar.DAY_OF_MONTH, dateCal.get(Calendar.DAY_OF_MONTH))
+                    selectedTimestamp = currentCal.timeInMillis
+                    showDatePicker = false
+                }) {
+                    Text(stringResource(id = R.string.validate_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        val currentCal = Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
+        val timePickerState = rememberTimePickerState(
+            initialHour = currentCal.get(Calendar.HOUR_OF_DAY),
+            initialMinute = currentCal.get(Calendar.MINUTE),
+            is24Hour = true
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cal = Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
+                    cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                    cal.set(Calendar.MINUTE, timePickerState.minute)
+                    selectedTimestamp = cal.timeInMillis
+                    showTimePicker = false
+                }) {
+                    Text(stringResource(id = R.string.validate_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            },
+            text = {
+                TimePicker(state = timePickerState)
+            }
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nouveau Repas") },
+        title = { Text(if (mealWithItems == null) stringResource(id = R.string.new_meal_title) else stringResource(id = R.string.edit_meal_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nom du repas") },
+                    label = { Text(stringResource(id = R.string.meal_name_label)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        val dateStr = SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date(selectedTimestamp))
+                        Text(dateStr)
+                    }
+                    OutlinedButton(
+                        onClick = { showTimePicker = true },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        val timeStr = SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(selectedTimestamp))
+                        Text(timeStr)
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Row(
@@ -60,19 +173,19 @@ fun AddMealDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Composition", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(id = R.string.composition_title), style = MaterialTheme.typography.titleSmall)
                     IconButton(onClick = { showItemPicker = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter élément")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_item_desc))
                     }
                 }
                 
-                LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
                     items(selectedItems) { item ->
                         val (foodId, recipeId, weight) = item
                         val label = if (foodId != null) {
-                            availableFood.find { it.id == foodId }?.name ?: "Aliment inconnu"
+                            availableFood.find { it.id == foodId }?.name ?: stringResource(id = R.string.unknown_food)
                         } else {
-                            availableRecipes.find { it.recipe.id == recipeId }?.recipe?.name ?: "Recette inconnue"
+                            availableRecipes.find { it.recipe.id == recipeId }?.recipe?.name ?: stringResource(id = R.string.unknown_recipe)
                         }
                         
                         Row(
@@ -81,9 +194,9 @@ fun AddMealDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(label, modifier = Modifier.weight(1f))
-                            Text("${weight}g", modifier = Modifier.padding(horizontal = 8.dp))
+                            Text("${Formatter.formatDouble(weight)}g", modifier = Modifier.padding(horizontal = 8.dp))
                             IconButton(onClick = { selectedItems.remove(item) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Supprimer")
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(id = R.string.delete))
                             }
                         }
                     }
@@ -94,11 +207,11 @@ fun AddMealDialog(
             Button(
                 onClick = {
                     if (name.isNotBlank() && selectedItems.isNotEmpty()) {
-                        onConfirm(name, selectedItems.toList())
+                        onConfirm(name, selectedTimestamp, selectedItems.toList())
                     }
                 }
             ) {
-                Text(stringResource(R.string.add))
+                Text(if (mealWithItems == null) stringResource(R.string.add) else stringResource(R.string.save_btn))
             }
         },
         dismissButton = {
@@ -109,7 +222,7 @@ fun AddMealDialog(
     )
 
     if (showItemPicker) {
-        ItemPickerDetailDialog(
+        ItemPickerDialog(
             availableFood = availableFood,
             availableRecipes = availableRecipes,
             onDismiss = { showItemPicker = false },
@@ -121,103 +234,98 @@ fun AddMealDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ItemPickerDetailDialog(
+fun ItemPickerDialog(
     availableFood: List<FoodEntity>,
     availableRecipes: List<RecipeWithComponents>,
     onDismiss: () -> Unit,
     onItemSelected: (Long?, Long?, Double) -> Unit
 ) {
-    var selectedFood by remember { mutableStateOf<FoodEntity?>(null) }
-    var selectedRecipe by remember { mutableStateOf<RecipeWithComponents?>(null) }
-    var weight by remember { mutableStateOf("") }
-    var expandedFood by remember { mutableStateOf(false) }
-    var expandedRecipe by remember { mutableStateOf(false) }
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf(stringResource(R.string.tab_food), stringResource(R.string.tab_recipes))
 
-    AlertDialog(
+    var foodSearchQuery by remember { mutableStateOf("") }
+    var foodSort by remember { mutableStateOf(SortOption.NAME_ASC) }
+    
+    var recipeSearchQuery by remember { mutableStateOf("") }
+    var recipeSort by remember { mutableStateOf(SortOption.NAME_ASC) }
+
+    var foodToWeight by remember { mutableStateOf<FoodEntity?>(null) }
+    var recipeToWeight by remember { mutableStateOf<RecipeWithComponents?>(null) }
+
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Ajouter au repas") },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
             Column {
-                Text("Choisir un aliment :", style = MaterialTheme.typography.bodySmall)
-                Box {
-                    OutlinedButton(
-                        onClick = { 
-                            expandedFood = true
-                            selectedRecipe = null 
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(selectedFood?.name ?: "Choisir un aliment")
-                    }
-                    DropdownMenu(
-                        expanded = expandedFood,
-                        onDismissRequest = { expandedFood = false }
-                    ) {
-                        availableFood.forEach { food ->
-                            DropdownMenuItem(
-                                text = { Text(food.name) },
-                                onClick = {
-                                    selectedFood = food
-                                    expandedFood = false
-                                }
-                            )
+                TopAppBar(
+                    title = { Text(stringResource(id = R.string.add_to_meal_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(id = R.string.cancel))
                         }
                     }
-                }
-                
-                Text("OU choisir une recette :", modifier = Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall)
-                Box {
-                    OutlinedButton(
-                        onClick = { 
-                            expandedRecipe = true
-                            selectedFood = null 
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(selectedRecipe?.recipe?.name ?: "Choisir une recette")
-                    }
-                    DropdownMenu(
-                        expanded = expandedRecipe,
-                        onDismissRequest = { expandedRecipe = false }
-                    ) {
-                        availableRecipes.forEach { recipe ->
-                            DropdownMenuItem(
-                                text = { Text(recipe.recipe.name) },
-                                onClick = {
-                                    selectedRecipe = recipe
-                                    expandedRecipe = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { 
-                        if (it.all { char -> char.isDigit() || char == ',' || char == '.' }) {
-                            weight = Formatter.validateNumericInput(it)
-                        }
-                    },
-                    label = { Text("Poids (g)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val w = Formatter.parseDouble(weight) ?: 0.0
-                    onItemSelected(selectedFood?.id, selectedRecipe?.recipe?.id, w)
-                },
-                enabled = (selectedFood != null || selectedRecipe != null) && weight.isNotBlank()
-            ) {
-                Text("Valider")
+                
+                TabRow(selectedTabIndex = selectedTabIndex) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { Text(title) }
+                        )
+                    }
+                }
+
+                when (selectedTabIndex) {
+                    0 -> FoodSelectionList(
+                        foods = availableFood,
+                        onFoodClick = { foodToWeight = it },
+                        searchQuery = foodSearchQuery,
+                        onSearchQueryChanged = { foodSearchQuery = it },
+                        selectedSort = foodSort,
+                        onSortSelected = { foodSort = it },
+                        showSettings = false
+                    )
+                    1 -> RecipeSelectionList(
+                        recipes = availableRecipes,
+                        availableFood = availableFood,
+                        onRecipeClick = { recipeToWeight = it },
+                        searchQuery = recipeSearchQuery,
+                        onSearchQueryChanged = { recipeSearchQuery = it },
+                        selectedSort = recipeSort,
+                        onSortSelected = { recipeSort = it },
+                        showSettings = false
+                    )
+                }
             }
         }
-    )
+    }
+
+    if (foodToWeight != null) {
+        WeightInputDialog(
+            title = foodToWeight?.name ?: "",
+            onDismiss = { foodToWeight = null },
+            onConfirm = { weight ->
+                onItemSelected(foodToWeight?.id, null, weight)
+                foodToWeight = null
+            }
+        )
+    }
+
+    if (recipeToWeight != null) {
+        WeightInputDialog(
+            title = recipeToWeight?.recipe?.name ?: "",
+            onDismiss = { recipeToWeight = null },
+            onConfirm = { weight ->
+                onItemSelected(null, recipeToWeight?.recipe?.id, weight)
+                recipeToWeight = null
+            }
+        )
+    }
 }

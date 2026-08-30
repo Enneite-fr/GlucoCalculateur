@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GlucoCalculateur</string>
     <string name="tab_meals">Meals</string>
@@ -5,13 +6,13 @@
     <string name="tab_food">Food</string>
     <string name="add_food">Add Food</string>
     <string name="food_name">Food Name</string>
-    <string name="carbs_per_100g">g of Carbs / 100 g</string>
+    <string name="carbs_per_100g">Carbs (g) per 100g</string>
     <string name="cancel">Cancel</string>
     <string name="add">Add</string>
     <string name="delete">Delete</string>
     <string name="tab_settings">Settings</string>
-    <string name="total_carbs_prefix">Total: %1$s g of Carbs</string>
-    <string name="carbs_unit">g of Carbs</string>
+    <string name="total_carbs_prefix">Total: %1$s</string>
+    <string name="carbs_unit">g carbs</string>
     <string name="meal_details_title">Meal Details:</string>
     <string name="no_meals_saved">No meals saved</string>
     <string name="delete_meal_confirm_title">Delete meal?</string>
@@ -21,7 +22,7 @@
     <string name="my_meals_title">My Meals</string>
     <string name="composition_title">Composition:</string>
     <string name="total_weight_prefix">Total weight: %1$s</string>
-    <string name="carbs_per_100g_format">%1$s g of Carbs / 100 g</string>
+    <string name="carbs_per_100g_format">%1$s g carbs / 100g</string>
     <string name="appearance_section">Appearance</string>
     <string name="display_mode">Display mode</string>
     <string name="language_region_section">Language &amp; Region</string>

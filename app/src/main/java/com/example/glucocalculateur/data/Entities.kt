@@ -65,7 +65,30 @@ data class MealEntity(
 /**
  * Liaison entre un repas et des aliments ou recettes.
  */
-@Entity(tableName = "meal_items")
+@Entity(
+    tableName = "meal_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = MealEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["mealId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = FoodEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["foodId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = RecipeEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["recipeId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("mealId"), Index("foodId"), Index("recipeId")]
+)
 data class MealItemEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val mealId: Long,

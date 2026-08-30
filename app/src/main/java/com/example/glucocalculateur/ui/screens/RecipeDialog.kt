@@ -3,9 +3,9 @@ package com.example.glucocalculateur.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,31 +14,44 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
+import com.example.glucocalculateur.data.RecipeWithComponents
 import com.example.glucocalculateur.ui.Formatter
+import com.example.glucocalculateur.ui.components.FoodSelectionList
+import com.example.glucocalculateur.ui.components.SortOption
+import com.example.glucocalculateur.ui.components.WeightInputDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddRecipeDialog(
+fun RecipeDialog(
+    recipe: RecipeWithComponents? = null,
     availableFood: List<FoodEntity>,
     onDismiss: () -> Unit,
     onConfirm: (String, List<Pair<Long, Double>>) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    val selectedComponents = remember { mutableStateListOf<Pair<Long, Double>>() }
+    var name by remember { mutableStateOf(recipe?.recipe?.name ?: "") }
+    val selectedComponents = remember { 
+        mutableStateListOf<Pair<Long, Double>>().apply {
+            recipe?.components?.forEach { comp ->
+                add(comp.foodId to comp.weightGrams)
+            }
+        }
+    }
     
     var showFoodPicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nouvelle Recette") },
+        title = { Text(if (recipe == null) stringResource(id = R.string.new_recipe_title) else stringResource(id = R.string.edit_recipe_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nom de la recette") },
+                    label = { Text(stringResource(id = R.string.recipe_name_label)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 
@@ -49,9 +62,9 @@ fun AddRecipeDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Ingrédients", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(id = R.string.ingredients_title), style = MaterialTheme.typography.titleSmall)
                     IconButton(onClick = { showFoodPicker = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Ajouter ingrédient")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_ingredient_desc))
                     }
                 }
                 
@@ -65,9 +78,9 @@ fun AddRecipeDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(food.name, modifier = Modifier.weight(1f))
-                                Text("${weight}g", modifier = Modifier.padding(horizontal = 8.dp))
+                                Text("${Formatter.formatDouble(weight)}g", modifier = Modifier.padding(horizontal = 8.dp))
                                 IconButton(onClick = { selectedComponents.remove(foodId to weight) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Supprimer")
+                                    Icon(Icons.Default.Delete, contentDescription = stringResource(id = R.string.delete))
                                 }
                             }
                         }
@@ -83,7 +96,7 @@ fun AddRecipeDialog(
                     }
                 }
             ) {
-                Text(stringResource(R.string.add))
+                Text(if (recipe == null) stringResource(R.string.add) else stringResource(R.string.save_btn))
             }
         },
         dismissButton = {
@@ -94,7 +107,7 @@ fun AddRecipeDialog(
     )
 
     if (showFoodPicker) {
-        FoodPickerDetailDialog(
+        FoodPickerDialog(
             availableFood = availableFood,
             onDismiss = { showFoodPicker = false },
             onFoodSelected = { food, weight ->
@@ -105,69 +118,56 @@ fun AddRecipeDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FoodPickerDetailDialog(
+fun FoodPickerDialog(
     availableFood: List<FoodEntity>,
     onDismiss: () -> Unit,
     onFoodSelected: (FoodEntity, Double) -> Unit
 ) {
-    var selectedFood by remember { mutableStateOf<FoodEntity?>(null) }
-    var weight by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var currentSort by remember { mutableStateOf(SortOption.NAME_ASC) }
+    var foodToWeight by remember { mutableStateOf<FoodEntity?>(null) }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Ajouter un ingrédient") },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
             Column {
-                Box {
-                    OutlinedButton(
-                        onClick = { expanded = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(selectedFood?.name ?: "Choisir un aliment")
-                    }
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        availableFood.forEach { food ->
-                            DropdownMenuItem(
-                                text = { Text(food.name) },
-                                onClick = {
-                                    selectedFood = food
-                                    expanded = false
-                                }
-                            )
+                TopAppBar(
+                    title = { Text(stringResource(id = R.string.add_ingredient_dialog_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(id = R.string.cancel))
                         }
                     }
-                }
+                )
                 
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { 
-                        if (it.all { char -> char.isDigit() || char == ',' || char == '.' }) {
-                            weight = Formatter.validateNumericInput(it)
-                        }
-                    },
-                    label = { Text("Poids (g)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
+                FoodSelectionList(
+                    foods = availableFood,
+                    onFoodClick = { foodToWeight = it },
+                    searchQuery = searchQuery,
+                    onSearchQueryChanged = { searchQuery = it },
+                    selectedSort = currentSort,
+                    onSortSelected = { currentSort = it },
+                    showSettings = false
                 )
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val w = Formatter.parseDouble(weight) ?: 0.0
-                    selectedFood?.let { onFoodSelected(it, w) }
-                },
-                enabled = selectedFood != null && weight.isNotBlank()
-            ) {
-                Text("Valider")
-            }
         }
-    )
+    }
+
+    if (foodToWeight != null) {
+        WeightInputDialog(
+            title = foodToWeight?.name ?: "",
+            onDismiss = { foodToWeight = null },
+            onConfirm = { weight ->
+                foodToWeight?.let { onFoodSelected(it, weight) }
+                foodToWeight = null
+            }
+        )
+    }
 }
