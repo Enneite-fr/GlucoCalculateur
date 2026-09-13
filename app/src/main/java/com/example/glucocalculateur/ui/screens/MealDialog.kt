@@ -1,5 +1,6 @@
 package com.example.glucocalculateur.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -105,6 +106,7 @@ fun MealDialog(
     var showItemPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var itemToEditIndex by remember { mutableStateOf<Int?>(null) }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedTimestamp)
@@ -189,7 +191,7 @@ fun MealDialog(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        val dateStr = SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(java.util.Date(selectedTimestamp))
+                        val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(selectedTimestamp))
                         Text(dateStr)
                     }
                     OutlinedButton(
@@ -197,7 +199,7 @@ fun MealDialog(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        val timeStr = SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(selectedTimestamp))
+                        val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(selectedTimestamp))
                         Text(timeStr)
                     }
                 }
@@ -216,7 +218,7 @@ fun MealDialog(
                 }
                 
                 LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
-                    items(selectedItems) { item ->
+                    itemsIndexed(selectedItems) { index, item ->
                         val (foodId, recipeId, weight) = item
                         val label = if (foodId != null) {
                             availableFood.find { it.id == foodId }?.name ?: stringResource(id = R.string.unknown_food)
@@ -225,13 +227,16 @@ fun MealDialog(
                         }
                         
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { itemToEditIndex = index }
+                                .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(label, modifier = Modifier.weight(1f))
                             Text("${Formatter.formatDouble(weight)}g", modifier = Modifier.padding(horizontal = 8.dp))
-                            IconButton(onClick = { selectedItems.remove(item) }) {
+                            IconButton(onClick = { selectedItems.removeAt(index) }) {
                                 Icon(Icons.Default.Delete, contentDescription = stringResource(id = R.string.delete))
                             }
                         }
@@ -256,6 +261,26 @@ fun MealDialog(
             }
         }
     )
+
+    if (itemToEditIndex != null && itemToEditIndex!! in selectedItems.indices) {
+        val index = itemToEditIndex!!
+        val (foodId, recipeId, currentWeight) = selectedItems[index]
+        val label = if (foodId != null) {
+            availableFood.find { it.id == foodId }?.name ?: stringResource(id = R.string.unknown_food)
+        } else {
+            availableRecipes.find { it.recipe.id == recipeId }?.recipe?.name ?: stringResource(id = R.string.unknown_recipe)
+        }
+
+        WeightInputDialog(
+            title = label,
+            initialWeight = currentWeight,
+            onDismiss = { itemToEditIndex = null },
+            onConfirm = { newWeight ->
+                selectedItems[index] = Triple(foodId, recipeId, newWeight)
+                itemToEditIndex = null
+            }
+        )
+    }
 
     if (showItemPicker) {
         ItemPickerDialog(

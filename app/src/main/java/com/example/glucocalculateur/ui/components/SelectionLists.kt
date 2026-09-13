@@ -305,10 +305,13 @@ fun RecipeSelectionItem(
 @Composable
 fun WeightInputDialog(
     title: String,
+    initialWeight: Double? = null,
     onDismiss: () -> Unit,
     onConfirm: (Double) -> Unit
 ) {
-    var weight by rememberSaveable { mutableStateOf("") }
+    var weight by rememberSaveable { 
+        mutableStateOf(if (initialWeight != null && initialWeight > 0.0) Formatter.formatDouble(initialWeight) else "") 
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,

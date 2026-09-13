@@ -1,5 +1,6 @@
 package com.example.glucocalculateur.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -65,6 +66,7 @@ fun RecipeDialog(
     }
     
     var showFoodPicker by rememberSaveable { mutableStateOf(false) }
+    var componentToEditIndex by remember { mutableStateOf<Int?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -92,17 +94,20 @@ fun RecipeDialog(
                 }
                 
                 LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                    items(selectedComponents) { (foodId, weight) ->
+                    itemsIndexed(selectedComponents) { index, (foodId, weight) ->
                         val food = availableFood.find { it.id == foodId }
                         if (food != null) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { componentToEditIndex = index }
+                                    .padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(food.name, modifier = Modifier.weight(1f))
                                 Text("${Formatter.formatDouble(weight)}g", modifier = Modifier.padding(horizontal = 8.dp))
-                                IconButton(onClick = { selectedComponents.remove(foodId to weight) }) {
+                                IconButton(onClick = { selectedComponents.removeAt(index) }) {
                                     Icon(Icons.Default.Delete, contentDescription = stringResource(id = R.string.delete))
                                 }
                             }
@@ -128,6 +133,22 @@ fun RecipeDialog(
             }
         }
     )
+
+    if (componentToEditIndex != null && componentToEditIndex!! in selectedComponents.indices) {
+        val index = componentToEditIndex!!
+        val (foodId, currentWeight) = selectedComponents[index]
+        val foodName = availableFood.find { it.id == foodId }?.name ?: stringResource(id = R.string.unknown_food)
+
+        WeightInputDialog(
+            title = foodName,
+            initialWeight = currentWeight,
+            onDismiss = { componentToEditIndex = null },
+            onConfirm = { newWeight ->
+                selectedComponents[index] = foodId to newWeight
+                componentToEditIndex = null
+            }
+        )
+    }
 
     if (showFoodPicker) {
         FoodPickerDialog(
