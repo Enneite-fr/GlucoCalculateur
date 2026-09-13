@@ -3,6 +3,7 @@ package com.example.glucocalculateur.ui
 import android.app.Application
 import android.content.Context
 import android.net.Uri
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.glucocalculateur.data.AppDatabase
@@ -48,7 +49,7 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
     fun setThemeMode(mode: ThemeMode) {
-        prefs.edit().putString("theme_mode", mode.name).apply()
+        prefs.edit { putString("theme_mode", mode.name) }
         _themeMode.value = mode
     }
 
@@ -58,7 +59,7 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
     val language: StateFlow<AppLanguage> = _language.asStateFlow()
 
     fun setLanguage(lang: AppLanguage) {
-        prefs.edit().putString("app_language", lang.name).apply()
+        prefs.edit { putString("app_language", lang.name) }
         _language.value = lang
     }
 
@@ -246,7 +247,7 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
                         recipes.forEach { recipe ->
                             recipe.components.forEach { comp ->
                                 val foodName = foodMap[comp.foodId]?.name ?: "Inconnu"
-                                writer.write("${recipe.recipe.name};${foodName};${comp.weightGrams}\n")
+                                writer.write("${recipe.recipe.name};$foodName;${comp.weightGrams}\n")
                             }
                         }
                     }

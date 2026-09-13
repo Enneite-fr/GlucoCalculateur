@@ -115,7 +115,7 @@ fun FilterBar(
                             text = { 
                                 Text(
                                     text = stringResource(id = option.labelRes),
-                                    fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else null
+                                    fontWeight = if (isSelected) FontWeight.Bold else null
                                 ) 
                             },
                             onClick = {

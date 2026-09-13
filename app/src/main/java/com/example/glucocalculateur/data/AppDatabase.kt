@@ -4,6 +4,10 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Database(
     entities = [
@@ -32,6 +36,14 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "gluco_database"
                 )
+                .addCallback(object : Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        CoroutineScope(Dispatchers.IO).launch {
+                            INSTANCE?.foodDao()?.insertAllFoods(INITIAL_FOODS)
+                        }
+                    }
+                })
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

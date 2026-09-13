@@ -1,6 +1,5 @@
 package com.example.glucocalculateur
 
-import android.content.Context
 import android.content.res.Resources
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
@@ -80,7 +79,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Initialiser la langue avant setContent pour éviter le clignotement
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val langName = prefs.getString("app_language", AppLanguage.SYSTEM.name) ?: AppLanguage.SYSTEM.name
         try {
             val appLang = AppLanguage.valueOf(langName)
@@ -112,7 +111,7 @@ class MainActivity : ComponentActivity() {
             // Appliquer la locale au niveau de l'activité pour forcer le rafraîchissement global
             LaunchedEffect(locale) {
                 val config = activity?.resources?.configuration
-                if (config != null && config.locales[0] != locale) {
+                if ((config != null) && (config.locales[0] != locale)) {
                     Formatter.applyLocaleToContext(activity, locale)
                     activity.recreate()
                 }
@@ -137,7 +136,7 @@ class MainActivity : ComponentActivity() {
                     navigationBarStyle = SystemBarStyle.auto(
                         AndroidColor.argb(0xe6, 0xFF, 0xFF, 0xFF),
                         AndroidColor.argb(0x80, 0x1b, 0x1b, 0x1b),
-                    ) { darkTheme }
+                    ) { darkTheme },
                 )
             }
 
@@ -295,13 +294,13 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
 
         // Complètement à l'extérieur du Scaffold pour un overlay parfait
         if (!isSettingsOpen) {
-            SpeedDialFab(onActionClick = { action ->
+            SpeedDialFab { action ->
                 when (action) {
                     SpeedDialAction.FOOD -> showAddFoodDialog = true
                     SpeedDialAction.RECIPE -> showAddRecipeDialog = true
                     SpeedDialAction.MEAL -> showAddMealDialog = true
                 }
-            })
+            }
         }
     }
 }
@@ -324,7 +323,7 @@ fun FloatingBottomBar(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .blur(15.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                .blur(15.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded),
             tonalElevation = 8.dp,
             color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
             shadowElevation = 12.dp
@@ -333,7 +332,7 @@ fun FloatingBottomBar(
         // Contenu non flouté (Icônes et texte)
         Row(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 12.dp, vertical = 4.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
@@ -358,7 +357,7 @@ fun FloatingBottomBar(
                         .weight(1f)
                 ) {
                     Column(
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -368,7 +367,7 @@ fun FloatingBottomBar(
                                     imageVector = icon.imageVector,
                                     contentDescription = stringResource(destination.labelRes),
                                     tint = iconColor,
-                                    modifier = Modifier.size(26.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                             is IconSource.Resource -> {
@@ -376,7 +375,7 @@ fun FloatingBottomBar(
                                     painter = painterResource(id = icon.resId),
                                     contentDescription = stringResource(destination.labelRes),
                                     tint = iconColor,
-                                    modifier = Modifier.size(26.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
@@ -385,7 +384,8 @@ fun FloatingBottomBar(
                             Text(
                                 text = stringResource(destination.labelRes),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = iconColor
+                                color = iconColor,
+                                maxLines = 1
                             )
                         }
                     }
