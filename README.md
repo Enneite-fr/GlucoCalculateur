@@ -18,7 +18,8 @@ L'app fonctionne en 3 onglets:
 
 <br>
 
-L'import d'aliments ou de recette par fichier CSV est faisable, vous pouvez utiliser le fichier de donnée disponible comme point de départ (DBglucides.csv).
+L'import d'aliments ou de recette par fichier CSV est faisable, vous pouvez utiliser le fichier de donnée disponible comme point de départ (DBglucides.csv).  
+Penser à créer un aliment neutre en glucide pour respecter les proportions lors de la création d'une recette.
 
 ## Attention
 
@@ -49,7 +50,8 @@ The app features three tabs:
 <br>
 
 
-You can import foods or recipes via a CSV file; you can use the provided data file as a starting point (DBglucides.csv).
+You can import foods or recipes via a CSV file; you can use the provided data file as a starting point (DBglucides.csv).  
+Consider creating a carbohydrate-neutral food to maintain the correct proportions when creating a recipe.  
 You can switch to english and imperial system in app settings.
 
 ## Important Notice
