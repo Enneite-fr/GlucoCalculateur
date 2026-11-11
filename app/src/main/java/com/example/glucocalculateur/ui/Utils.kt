@@ -1,8 +1,5 @@
 package com.example.glucocalculateur.ui
 
-import android.content.Context
-import android.content.res.Configuration
-import android.os.LocaleList
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -39,21 +36,4 @@ object Formatter {
         return processed.replace('.', decimalSeparator)
     }
 
-    fun updateResourceLocale(context: Context, locale: Locale): Context {
-        Locale.setDefault(locale)
-        val configuration = Configuration(context.resources.configuration)
-        val localeList = LocaleList(locale)
-        configuration.setLocales(localeList)
-        return context.createConfigurationContext(configuration)
-    }
-
-    @Suppress("DEPRECATION")
-    fun applyLocaleToContext(context: Context, locale: Locale) {
-        Locale.setDefault(locale)
-        val resources = context.resources
-        val config = resources.configuration
-        val localeList = LocaleList(locale)
-        config.setLocales(localeList)
-        resources.updateConfiguration(config, resources.displayMetrics)
-    }
 }

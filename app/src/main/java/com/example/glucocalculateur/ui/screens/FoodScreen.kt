@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,16 +34,12 @@ fun FoodScreen(
     onSettingsClick: () -> Unit,
     viewModel: GlucoCalculateurViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
-    val language by viewModel.language.collectAsState()
-    
-    key(language) {
-        FoodScreenContent(
+    FoodScreenContent(
             foods = foods,
             onDeleteFood = onDeleteFood,
             onSettingsClick = onSettingsClick,
             viewModel = viewModel
         )
-    }
 }
 
 @Composable

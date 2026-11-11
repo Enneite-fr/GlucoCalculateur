@@ -37,13 +37,6 @@ enum class ThemeMode {
     LIGHT, DARK, AUTO
 }
 
-enum class AppLanguage(val code: String, val country: String, val label: String) {
-    SYSTEM("", "", "Système"),
-    FRENCH_FR("fr", "FR", "Français (France)"),
-    ENGLISH_US("en", "US", "English (United States)"),
-    ENGLISH_GB("en", "GB", "English (United Kingdom)")
-}
-
 /** Événements ponctuels à afficher (Snackbar). */
 sealed interface UiEvent {
     data class ImportFinished(val report: ImportReport) : UiEvent
@@ -71,16 +64,6 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit { putString("theme_mode", mode.name) }
         _themeMode.value = mode
-    }
-
-    private val _language = MutableStateFlow(
-        runCatching { AppLanguage.valueOf(prefs.getString("app_language", null) ?: "") }.getOrDefault(AppLanguage.SYSTEM)
-    )
-    val language: StateFlow<AppLanguage> = _language.asStateFlow()
-
-    fun setLanguage(lang: AppLanguage) {
-        prefs.edit { putString("app_language", lang.name) }
-        _language.value = lang
     }
 
     // --- Données ---

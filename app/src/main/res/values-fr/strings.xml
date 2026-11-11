@@ -122,4 +122,5 @@
     <string name="issue_recipe_without_ingredients">Recette « %1$s » ignorée : aucun ingrédient</string>
     <string name="issue_empty_meal">Repas « %1$s » ignoré : aucun élément utilisable</string>
     <string name="issue_partial_meal">Repas « %1$s » importé sans certains éléments introuvables</string>
+    <string name="language_system">Système</string>
 </resources>

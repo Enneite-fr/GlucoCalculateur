@@ -116,4 +116,5 @@
     <string name="issue_recipe_without_ingredients">Recipe “%1$s” skipped: no ingredients</string>
     <string name="issue_empty_meal">Meal “%1$s” skipped: no usable item</string>
     <string name="issue_partial_meal">Meal “%1$s” imported without some items that could not be found</string>
+    <string name="language_system">System</string>
 </resources>

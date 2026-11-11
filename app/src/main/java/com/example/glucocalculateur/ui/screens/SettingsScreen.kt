@@ -1,6 +1,5 @@
 package com.example.glucocalculateur.ui.screens
 
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -40,21 +39,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.ui.AppLanguage
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import com.example.glucocalculateur.ui.ThemeMode
 
+private const val GITHUB_URL = "https://github.com/Enneite-fr/GlucoCalculateur"
+
 @Composable
 fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val themeMode by viewModel.themeMode.collectAsState()
-    val language by viewModel.language.collectAsState()
+    val language = remember { AppLanguage.current() }
     
     val exportFoodLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
@@ -127,7 +129,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppLanguage.entries.forEach { lang ->
                     Surface(
-                        onClick = { viewModel.setLanguage(lang) },
+                        onClick = { if (lang != language) lang.apply() },
                         shape = MaterialTheme.shapes.medium,
                         color = if (language == lang) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.fillMaxWidth()
@@ -137,7 +139,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(lang.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(lang.nativeName ?: stringResource(R.string.language_system), style = MaterialTheme.typography.bodyLarge)
                             if (language == lang) {
                                 Icon(Icons.Default.Check, contentDescription = null)
                             }
@@ -293,16 +295,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                 }
 
                 TextButton(
-                    onClick = {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/Enneite-fr/GlucoCalculateur".toUri()).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    },
+                    onClick = { runCatching { uriHandler.openUri(GITHUB_URL) } },
                     modifier = Modifier.padding(start = 0.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {

@@ -43,7 +43,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,11 +64,15 @@ import com.example.glucocalculateur.data.MealLabels
 import com.example.glucocalculateur.ui.Formatter
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import com.example.glucocalculateur.domain.DateUtils
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.time.format.TextStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,10 +84,7 @@ fun MealScreen(
     onSettingsClick: () -> Unit,
     viewModel: GlucoCalculateurViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
-    val language by viewModel.language.collectAsState()
-    
-    key(language) {
-        MealScreenContent(
+    MealScreenContent(
             meals = meals,
             availableFood = availableFood,
             availableRecipes = availableRecipes,
@@ -92,7 +92,6 @@ fun MealScreen(
             onSettingsClick = onSettingsClick,
             viewModel = viewModel
         )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -106,9 +105,10 @@ private fun MealScreenContent(
     viewModel: GlucoCalculateurViewModel
 ) {
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = System.currentTimeMillis()
+        initialSelectedDateMillis = DateUtils.dateToPickerMillis(LocalDate.now())
     )
     val listState = rememberLazyListState()
+    val locale = LocalConfiguration.current.locales[0]
     val scope = rememberCoroutineScope()
 
     var mealToDelete by remember { mutableStateOf<MealWithItems?>(null) }
@@ -120,7 +120,7 @@ private fun MealScreenContent(
 
     if (showFullCalendar) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+            initialSelectedDateMillis = datePickerState.selectedDateMillis ?: DateUtils.dateToPickerMillis(LocalDate.now())
         )
         DatePickerDialog(
             onDismissRequest = { showFullCalendar = false },
@@ -181,37 +181,17 @@ private fun MealScreenContent(
 
     // Groupement des repas par jour
     val groupedMeals = remember(meals) {
-        meals.groupBy { meal ->
-            Calendar.getInstance().apply {
-                timeInMillis = meal.meal.dateTimestamp
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-        }.toSortedMap(reverseOrder())
+        meals.groupBy { DateUtils.localDate(it.meal.dateTimestamp) }.toSortedMap(reverseOrder())
     }
 
     // Synchronisation : défilement vers la date sélectionnée
     LaunchedEffect(datePickerState.selectedDateMillis) {
         datePickerState.selectedDateMillis?.let { selectedMillis ->
-            val selectedCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-                timeInMillis = selectedMillis
-            }
-            
-            val targetDateMillis = Calendar.getInstance().apply {
-                set(Calendar.YEAR, selectedCalendar.get(Calendar.YEAR))
-                set(Calendar.MONTH, selectedCalendar.get(Calendar.MONTH))
-                set(Calendar.DAY_OF_MONTH, selectedCalendar.get(Calendar.DAY_OF_MONTH))
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
+            val targetDate = DateUtils.pickerMillisToDate(selectedMillis)
 
             var index = 0
             for (date in groupedMeals.keys) {
-                if (date == targetDateMillis) {
+                if (date == targetDate) {
                     scope.launch {
                         listState.animateScrollToItem(index)
                     }
@@ -260,8 +240,8 @@ private fun MealScreenContent(
                     contentAlignment = Alignment.Center
                 ) {
                     HorizontalCalendar(
-                        selectedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis(),
-                        onDateSelected = { datePickerState.selectedDateMillis = it },
+                        selectedDate = datePickerState.selectedDateMillis?.let(DateUtils::pickerMillisToDate) ?: LocalDate.now(),
+                        onDateSelected = { datePickerState.selectedDateMillis = DateUtils.dateToPickerMillis(it) },
                         onOpenFullCalendar = { showFullCalendar = true }
                     )
                 }
@@ -274,11 +254,11 @@ private fun MealScreenContent(
                     contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    groupedMeals.forEach { (dateMillis, mealsForDate) ->
+                    groupedMeals.forEach { (date, mealsForDate) ->
                         stickyHeader {
-                            val dateFormat = SimpleDateFormat("EEEE d MMMM yyyy", Locale.getDefault())
-                            val dateLabel = dateFormat.format(Date(dateMillis)).replaceFirstChar { it.uppercase() }
-                            
+                            val dateLabel = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale))
+                                .replaceFirstChar { it.uppercase() }
+
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -306,7 +286,7 @@ private fun MealScreenContent(
                             }
                         }
                     }
-                    
+
                     if (meals.isEmpty()) {
                         item {
                             Box(
@@ -331,24 +311,14 @@ private fun MealScreenContent(
 
 @Composable
 fun HorizontalCalendar(
-    selectedDateMillis: Long,
-    onDateSelected: (Long) -> Unit,
+    selectedDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit,
     onOpenFullCalendar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val calendar = remember(selectedDateMillis) {
-        Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
-    }
-    
+    val locale = LocalConfiguration.current.locales[0]
     // Stabilise la vue calendrier autour de la date
-    val dateList = remember(selectedDateMillis) {
-        (-3..3).map { offset ->
-            Calendar.getInstance().apply {
-                timeInMillis = selectedDateMillis
-                add(Calendar.DAY_OF_YEAR, offset)
-            }.timeInMillis
-        }
-    }
+    val dateList = remember(selectedDate) { (-3L..3L).map { selectedDate.plusDays(it) } }
 
     Card(
         modifier = modifier
@@ -370,7 +340,7 @@ fun HorizontalCalendar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(calendar.time)
+                    text = selectedDate.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale))
                         .replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
@@ -385,23 +355,21 @@ fun HorizontalCalendar(
                     )
                 }
             }
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                dateList.forEach { dateMillis ->
-                    val dateCal = Calendar.getInstance().apply { timeInMillis = dateMillis }
-                    val isSelected = isSameDay(dateCal, calendar)
-                    val dayName = SimpleDateFormat("EEE", Locale.getDefault()).format(dateCal.time)
-                        .take(1).uppercase()
-                    val dayNumber = dateCal.get(Calendar.DAY_OF_MONTH).toString()
-                    
+                dateList.forEach { date ->
+                    val isSelected = date == selectedDate
+                    val dayName = date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale).uppercase(locale)
+                    val dayNumber = date.dayOfMonth.toString()
+
                     Column(
                         modifier = Modifier
                             .clip(MaterialTheme.shapes.medium)
                             .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
-                            .clickable { onDateSelected(dateMillis) }
+                            .clickable { onDateSelected(date) }
                             .padding(vertical = 8.dp, horizontal = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -423,10 +391,6 @@ fun HorizontalCalendar(
     }
 }
 
-private fun isSameDay(c1: Calendar, c2: Calendar): Boolean {
-    return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
-           c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -438,13 +402,18 @@ fun MealItem(
     onDelete: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    
+
     val totalCarbs = remember(mealWithItems.items, foodMap, recipeMap) {
         CarbCalculator.mealTotalCarbs(mealWithItems.items, foodMap, recipeMap)
     }
 
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    val dateString = dateFormat.format(Date(mealWithItems.meal.dateTimestamp))
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
+    val timePattern = android.text.format.DateFormat.getBestDateTimePattern(
+        locale, if (android.text.format.DateFormat.is24HourFormat(context)) "Hm" else "hm"
+    )
+    val dateString = Instant.ofEpochMilli(mealWithItems.meal.dateTimestamp).atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern(timePattern, locale))
 
     ElevatedCard(
         modifier = Modifier
@@ -494,7 +463,7 @@ fun MealItem(
                 Text(stringResource(id = R.string.meal_details_title), style = MaterialTheme.typography.titleSmall)
                 mealWithItems.items.forEach { item ->
                     val label = MealLabels.of(item, foodMap, recipeMap) ?: stringResource(id = R.string.unknown_food)
-                    
+
                     val itemCarbs = CarbCalculator.mealItemCarbs(item, foodMap, recipeMap)
 
                     Text(

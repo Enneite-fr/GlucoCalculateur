@@ -62,10 +62,12 @@ import com.example.glucocalculateur.ui.components.FoodSelectionList
 import com.example.glucocalculateur.ui.components.RecipeSelectionList
 import com.example.glucocalculateur.ui.components.SortOption
 import com.example.glucocalculateur.ui.components.WeightInputDialog
-import java.text.SimpleDateFormat
+import com.example.glucocalculateur.domain.DateUtils
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,12 +78,12 @@ fun MealDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, Long, List<MealItemDraft>) -> Unit
 ) {
-    val initialCalendar = remember { 
+    val initialCalendar = remember {
         Calendar.getInstance().apply {
             mealWithItems?.meal?.dateTimestamp?.let { timeInMillis = it }
         }
     }
-    
+
     val defaultName = if (mealWithItems == null) {
         val hour = initialCalendar.get(Calendar.HOUR_OF_DAY)
         when {
@@ -93,37 +95,36 @@ fun MealDialog(
     } else {
         mealWithItems.meal.name
     }
-    
+
     var name by rememberSaveable { mutableStateOf(defaultName) }
     var selectedTimestamp by rememberSaveable { mutableLongStateOf(initialCalendar.timeInMillis) }
-    
-    val selectedItems = remember { 
+
+    val selectedItems = remember {
         mutableStateListOf<MealItemDraft>().apply {
             mealWithItems?.items?.forEach { item -> add(MealItemDraft.from(item)) }
         }
     }
-    
+
     val foodMap = remember(availableFood) { availableFood.associateBy { it.id } }
     val recipeMap = remember(availableRecipes) { availableRecipes.associateBy { it.recipe.id } }
     var showItemPicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var itemToEditIndex by remember { mutableStateOf<Int?>(null) }
 
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedTimestamp)
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.dateToPickerMillis(DateUtils.localDate(selectedTimestamp))
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    val dateCal = Calendar.getInstance().apply { 
-                        timeInMillis = datePickerState.selectedDateMillis ?: selectedTimestamp 
+                    datePickerState.selectedDateMillis?.let {
+                        selectedTimestamp = DateUtils.withDate(selectedTimestamp, DateUtils.pickerMillisToDate(it))
                     }
-                    val currentCal = Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
-                    currentCal.set(Calendar.YEAR, dateCal.get(Calendar.YEAR))
-                    currentCal.set(Calendar.MONTH, dateCal.get(Calendar.MONTH))
-                    currentCal.set(Calendar.DAY_OF_MONTH, dateCal.get(Calendar.DAY_OF_MONTH))
-                    selectedTimestamp = currentCal.timeInMillis
                     showDatePicker = false
                 }) {
                     Text(stringResource(id = R.string.validate_btn))
@@ -144,16 +145,13 @@ fun MealDialog(
         val timePickerState = rememberTimePickerState(
             initialHour = currentCal.get(Calendar.HOUR_OF_DAY),
             initialMinute = currentCal.get(Calendar.MINUTE),
-            is24Hour = true
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context)
         )
         AlertDialog(
             onDismissRequest = { showTimePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    val cal = Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
-                    cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                    cal.set(Calendar.MINUTE, timePickerState.minute)
-                    selectedTimestamp = cal.timeInMillis
+                    selectedTimestamp = DateUtils.withTime(selectedTimestamp, timePickerState.hour, timePickerState.minute)
                     showTimePicker = false
                 }) {
                     Text(stringResource(id = R.string.validate_btn))
@@ -181,7 +179,7 @@ fun MealDialog(
                     label = { Text(stringResource(id = R.string.meal_name_label)) },
                     modifier = Modifier.fillMaxWidth()
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
@@ -193,7 +191,8 @@ fun MealDialog(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(selectedTimestamp))
+                        val dateStr = DateUtils.localDate(selectedTimestamp)
+                            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
                         Text(dateStr)
                     }
                     OutlinedButton(
@@ -201,13 +200,14 @@ fun MealDialog(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(selectedTimestamp))
+                        val timeStr = DateUtils.localTime(selectedTimestamp)
+                            .format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))
                         Text(timeStr)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,12 +218,12 @@ fun MealDialog(
                         Icon(Icons.Default.Add, contentDescription = stringResource(id = R.string.add_item_desc))
                     }
                 }
-                
+
                 LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
                     itemsIndexed(selectedItems) { index, item ->
                         val weight = item.weightGrams
                         val label = MealLabels.of(item, foodMap, recipeMap) ?: stringResource(id = R.string.unknown_food)
-                        
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -303,7 +303,7 @@ fun ItemPickerDialog(
 
     var foodSearchQuery by remember { mutableStateOf("") }
     var foodSort by remember { mutableStateOf(SortOption.NAME_ASC) }
-    
+
     var recipeSearchQuery by remember { mutableStateOf("") }
     var recipeSort by remember { mutableStateOf(SortOption.NAME_ASC) }
 
@@ -327,7 +327,7 @@ fun ItemPickerDialog(
                         }
                     }
                 )
-                
+
                 TabRow(selectedTabIndex = selectedTabIndex) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
