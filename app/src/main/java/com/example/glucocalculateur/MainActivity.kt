@@ -1,126 +1,85 @@
 package com.example.glucocalculateur
 
-import android.content.res.Resources
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import android.os.Parcelable
 import androidx.activity.SystemBarStyle
-import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.animateColorAsState
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.os.ConfigurationCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.glucocalculateur.data.io.ImportReport
 import com.example.glucocalculateur.ui.AppLanguage
-import com.example.glucocalculateur.ui.Formatter
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import com.example.glucocalculateur.ui.ThemeMode
-import com.example.glucocalculateur.ui.components.SpeedDialAction
-import com.example.glucocalculateur.ui.components.SpeedDialFab
+import com.example.glucocalculateur.ui.components.AppDestinations
+import com.example.glucocalculateur.ui.components.FloatingBottomBar
+import com.example.glucocalculateur.ui.components.ImportReportDialog
+import com.example.glucocalculateur.ui.components.UiEventsEffect
 import com.example.glucocalculateur.ui.screens.FoodDialog
 import com.example.glucocalculateur.ui.screens.FoodScreen
-import com.example.glucocalculateur.ui.screens.MealDialog
+import com.example.glucocalculateur.ui.screens.MealEditorScreen
 import com.example.glucocalculateur.ui.screens.MealScreen
-import com.example.glucocalculateur.ui.screens.RecipeDialog
+import com.example.glucocalculateur.ui.screens.RecipeEditorScreen
 import com.example.glucocalculateur.ui.screens.RecipeScreen
 import com.example.glucocalculateur.ui.screens.SettingsScreen
+import com.example.glucocalculateur.ui.theme.Dimens
 import com.example.glucocalculateur.ui.theme.GlucoCalculateurTheme
-import java.util.Locale
+import com.example.glucocalculateur.ui.theme.listBottomPadding
+import kotlinx.parcelize.Parcelize
+import java.time.LocalDate
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Initialiser la langue avant setContent pour éviter le clignotement
-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val langName = prefs.getString("app_language", AppLanguage.SYSTEM.name) ?: AppLanguage.SYSTEM.name
-        try {
-            val appLang = AppLanguage.valueOf(langName)
-            val locale = if (appLang == AppLanguage.SYSTEM) {
-                ConfigurationCompat.getLocales(Resources.getSystem().configuration)[0] ?: Locale.getDefault()
-            } else {
-                Locale(appLang.code, appLang.country)
-            }
-            Formatter.applyLocaleToContext(this, locale)
-        } catch (_: Exception) {}
+        AppLanguage.migrateLegacyPreference(this)
 
         enableEdgeToEdge()
         setContent {
             val viewModel: GlucoCalculateurViewModel = viewModel()
-            val themeMode by viewModel.themeMode.collectAsState()
-            val language by viewModel.language.collectAsState()
-
-            val locale = remember(language) {
-                if (language == AppLanguage.SYSTEM) {
-                    ConfigurationCompat.getLocales(Resources.getSystem().configuration)[0] ?: Locale.getDefault()
-                } else {
-                    Locale(language.code, language.country)
-                }
-            }
-            
-            val context = LocalContext.current
-            val activity = context as? ComponentActivity
-            
-            // Appliquer la locale au niveau de l'activité pour forcer le rafraîchissement global
-            LaunchedEffect(locale) {
-                val config = activity?.resources?.configuration
-                if ((config != null) && (config.locales[0] != locale)) {
-                    Formatter.applyLocaleToContext(activity, locale)
-                    activity.recreate()
-                }
-            }
-
-            val localizedContext = remember(locale) {
-                Formatter.updateResourceLocale(context, locale)
-            }
-
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
@@ -128,11 +87,8 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(darkTheme) {
-                activity?.enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(
-                        AndroidColor.TRANSPARENT,
-                        AndroidColor.TRANSPARENT,
-                    ) { darkTheme },
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT) { darkTheme },
                     navigationBarStyle = SystemBarStyle.auto(
                         AndroidColor.argb(0xe6, 0xFF, 0xFF, 0xFF),
                         AndroidColor.argb(0x80, 0x1b, 0x1b, 0x1b),
@@ -140,271 +96,231 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            CompositionLocalProvider(
-                LocalConfiguration provides localizedContext.resources.configuration,
-                LocalContext provides localizedContext,
-                LocalActivityResultRegistryOwner provides (activity ?: LocalActivityResultRegistryOwner.current!!)
-            ) {
-                GlucoCalculateurTheme(
-                    darkTheme = darkTheme
-                ) {
-                    GlucoCalculateurApp(viewModel)
-                }
+            GlucoCalculateurTheme(darkTheme = darkTheme) {
+                GlucoCalculateurApp(viewModel)
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Écran plein affiché par-dessus les onglets. */
+sealed interface Editor : Parcelable {
+    @Parcelize
+    data class Meal(val mealId: Long?, val epochDay: Long) : Editor
+
+    @Parcelize
+    data class Recipe(val recipeId: Long?) : Editor
+}
+
+/** Dialogue d'aliment ouvert (création si [foodId] est nul). */
+@Parcelize
+data class FoodDialogTarget(val foodId: Long?) : Parcelable
+
 @Composable
 fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.MEALS) }
-    var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
-    
-    var showAddFoodDialog by rememberSaveable { mutableStateOf(false) }
-    var showAddRecipeDialog by rememberSaveable { mutableStateOf(false) }
-    var showAddMealDialog by rememberSaveable { mutableStateOf(false) }
-    
-    val foods by viewModel.allFood.collectAsState()
-    val recipes by viewModel.allRecipes.collectAsState()
-    val meals by viewModel.allMeals.collectAsState()
+    var destination by rememberSaveable { mutableStateOf(AppDestinations.MEALS) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var editor by rememberSaveable { mutableStateOf<Editor?>(null) }
+    var foodDialog by rememberSaveable { mutableStateOf<FoodDialogTarget?>(null) }
+    var selectedEpochDay by rememberSaveable { mutableLongStateOf(LocalDate.now().toEpochDay()) }
+    val selectedDay = LocalDate.ofEpochDay(selectedEpochDay)
 
-    // Dialogs
-    if (showAddFoodDialog) {
-        FoodDialog(
-            onDismiss = { showAddFoodDialog = false },
-            onConfirm = { name, carbs ->
-                viewModel.addFood(name, carbs)
-                showAddFoodDialog = false
-            }
-        )
+    val foods by viewModel.allFood.collectAsStateWithLifecycle()
+    val recipes by viewModel.allRecipes.collectAsStateWithLifecycle()
+    val meals by viewModel.allMeals.collectAsStateWithLifecycle()
+    val foodMap = remember(foods) { foods.associateBy { it.id } }
+    val recipeMap = remember(recipes) { recipes.associateBy { it.recipe.id } }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    var importReport by remember { mutableStateOf<ImportReport?>(null) }
+    UiEventsEffect(
+        events = viewModel.events,
+        snackbarHostState = snackbarHostState,
+        onUndoMealDeletion = viewModel::restoreMeal,
+        onShowImportReport = { importReport = it }
+    )
+
+    // Retour : depuis un autre onglet, revient aux repas (les éditeurs et les paramètres gèrent le leur).
+    BackHandler(enabled = editor == null && !settingsOpen && destination != AppDestinations.MEALS) {
+        destination = AppDestinations.MEALS
     }
 
-    if (showAddRecipeDialog) {
-        RecipeDialog(
-            availableFood = foods,
-            onDismiss = { showAddRecipeDialog = false },
-            onConfirm = { name, components ->
-                viewModel.addRecipe(name, components)
-                showAddRecipeDialog = false
-            }
-        )
+    val createForCurrentTab = {
+        when (destination) {
+            AppDestinations.MEALS -> editor = Editor.Meal(null, selectedEpochDay)
+            AppDestinations.RECIPES -> editor = Editor.Recipe(null)
+            AppDestinations.FOOD -> foodDialog = FoodDialogTarget(null)
+        }
     }
 
-    if (showAddMealDialog) {
-        MealDialog(
-            availableFood = foods,
-            availableRecipes = recipes,
-            onDismiss = { showAddMealDialog = false },
-            onConfirm = { name, timestamp, items ->
-                viewModel.addMeal(name, timestamp, items)
-                showAddMealDialog = false
-            }
-        )
-    }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                if (isSettingsOpen) {
-                    TopAppBar(
-                        title = { Text(stringResource(id = R.string.tab_settings)) },
-                        navigationIcon = {
-                            IconButton(onClick = { isSettingsOpen = false }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back))
-                            }
-                        }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+    ) {
+        when (val current = editor) {
+            is Editor.Meal -> {
+                val meal = current.mealId?.let { id -> meals.firstOrNull { it.meal.id == id } }
+                if (current.mealId == null || meal != null) {
+                    MealEditorScreen(
+                        meal = meal,
+                        initialDate = LocalDate.ofEpochDay(current.epochDay),
+                        foods = foods,
+                        recipes = recipes,
+                        foodMap = foodMap,
+                        recipeMap = recipeMap,
+                        onSave = { name, timestamp, items ->
+                            viewModel.saveMeal(current.mealId, name, timestamp, items)
+                            editor = null
+                        },
+                        onClose = { editor = null }
                     )
+                } else {
+                    BackHandler { editor = null }
                 }
             }
-        ) { innerPadding ->
-            Box(modifier = Modifier.fillMaxSize()) {
-                Surface(
-                    modifier = Modifier
-                        .padding(top = innerPadding.calculateTopPadding())
-                        .fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    if (isSettingsOpen) {
-                        SettingsScreen(viewModel = viewModel)
-                    } else {
-                        when (currentDestination) {
-                            AppDestinations.MEALS -> MealScreen(
-                                meals = meals,
-                                availableFood = foods,
-                                availableRecipes = recipes,
-                                onDeleteMeal = { viewModel.deleteMeal(it.meal) },
-                                onSettingsClick = { isSettingsOpen = true },
-                                viewModel = viewModel
-                            )
-                            AppDestinations.RECIPES -> RecipeScreen(
-                                recipes = recipes,
-                                availableFood = foods,
-                                onDeleteRecipe = { viewModel.deleteRecipe(it.recipe) },
-                                onSettingsClick = { isSettingsOpen = true },
-                                viewModel = viewModel
-                            )
-                            AppDestinations.FOOD -> FoodScreen(
-                                foods = foods,
-                                onDeleteFood = { viewModel.deleteFood(it) },
-                                onSettingsClick = { isSettingsOpen = true },
-                                viewModel = viewModel
-                            )
-                        }
-                    }
-                }
-
-                if (!isSettingsOpen) {
-                    // Dégradé plus accentué pour faire disparaître les cartes
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
-                                        MaterialTheme.colorScheme.background
-                                    )
-                                )
-                            )
+            is Editor.Recipe -> {
+                val recipe = current.recipeId?.let { recipeMap[it] }
+                if (current.recipeId == null || recipe != null) {
+                    RecipeEditorScreen(
+                        recipe = recipe,
+                        foods = foods,
+                        foodMap = foodMap,
+                        onSave = { name, components ->
+                            viewModel.saveRecipe(current.recipeId, name, components)
+                            editor = null
+                        },
+                        onClose = { editor = null }
                     )
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(bottom = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        FloatingBottomBar(
-                            currentDestination = currentDestination,
-                            onNavigate = { currentDestination = it }
+                } else {
+                    BackHandler { editor = null }
+                }
+            }
+            null -> if (settingsOpen) {
+                SettingsScreen(viewModel = viewModel, onBack = { settingsOpen = false })
+            } else {
+                MainTabs(
+                    destination = destination,
+                    onNavigate = { destination = it },
+                    onCreate = createForCurrentTab
+                ) { bottomPadding ->
+                    when (destination) {
+                        AppDestinations.MEALS -> MealScreen(
+                            meals = meals,
+                            foodMap = foodMap,
+                            recipeMap = recipeMap,
+                            selectedDay = selectedDay,
+                            onSelectedDayChange = { selectedEpochDay = it.toEpochDay() },
+                            onAddMeal = { editor = Editor.Meal(null, it.toEpochDay()) },
+                            onEditMeal = { editor = Editor.Meal(it.meal.id, selectedEpochDay) },
+                            onDeleteMeal = { viewModel.deleteMeal(it.meal.id) },
+                            onSettingsClick = { settingsOpen = true },
+                            bottomPadding = bottomPadding
+                        )
+                        AppDestinations.RECIPES -> RecipeScreen(
+                            recipes = recipes,
+                            foodMap = foodMap,
+                            onCreateRecipe = { editor = Editor.Recipe(null) },
+                            onEditRecipe = { editor = Editor.Recipe(it.recipe.id) },
+                            onDeleteRecipe = { viewModel.deleteRecipe(it.recipe.id) },
+                            countMealsUsingRecipe = viewModel::countMealsUsingRecipe,
+                            onSettingsClick = { settingsOpen = true },
+                            bottomPadding = bottomPadding
+                        )
+                        AppDestinations.FOOD -> FoodScreen(
+                            foods = foods,
+                            onCreateFood = { foodDialog = FoodDialogTarget(null) },
+                            onEditFood = { foodDialog = FoodDialogTarget(it.id) },
+                            onDeleteFood = { viewModel.deleteFood(it.id) },
+                            countRecipesUsingFood = viewModel::countRecipesUsingFood,
+                            onSettingsClick = { settingsOpen = true },
+                            bottomPadding = bottomPadding
                         )
                     }
                 }
             }
         }
 
-        // Complètement à l'extérieur du Scaffold pour un overlay parfait
-        if (!isSettingsOpen) {
-            SpeedDialFab { action ->
-                when (action) {
-                    SpeedDialAction.FOOD -> showAddFoodDialog = true
-                    SpeedDialAction.RECIPE -> showAddRecipeDialog = true
-                    SpeedDialAction.MEAL -> showAddMealDialog = true
-                }
-            }
+        val onTabs = editor == null && !settingsOpen
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = if (onTabs) Dimens.listBottomSpace else 96.dp)
+        )
+    }
+
+    foodDialog?.let { target ->
+        val food = target.foodId?.let { foodMap[it] }
+        if (target.foodId == null || food != null) {
+            FoodDialog(
+                food = food,
+                foods = foods,
+                onSave = { id, name, carbs ->
+                    viewModel.saveFood(id, name, carbs)
+                    foodDialog = null
+                },
+                onDismiss = { foodDialog = null }
+            )
         }
     }
+    importReport?.let { ImportReportDialog(it, onDismiss = { importReport = null }) }
 }
 
+/** Onglets : contenu, dégradé de bas de liste, barre flottante et bouton d'action contextuel. */
 @Composable
-fun FloatingBottomBar(
-    currentDestination: AppDestinations,
-    onNavigate: (AppDestinations) -> Unit
+private fun MainTabs(
+    destination: AppDestinations,
+    onNavigate: (AppDestinations) -> Unit,
+    onCreate: () -> Unit,
+    content: @Composable (bottomPadding: androidx.compose.ui.unit.Dp) -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .height(72.dp)
-            .clip(CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        // Fond flouté (Effet verre dépoli)
-        // Note: Le flou s'applique au contenu de la Surface. 
-        // Pour simuler un flou d'arrière-plan, on utilise une Surface semi-transparente floutée.
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(15.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded),
-            tonalElevation = 8.dp,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-            shadowElevation = 12.dp
-        ) {}
+    Box(modifier = Modifier.fillMaxSize()) {
+        content(listBottomPadding())
 
-        // Contenu non flouté (Icônes et texte)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(140.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+                            MaterialTheme.colorScheme.background
+                        )
+                    )
+                )
+        )
+
         Row(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = Dimens.screenPadding)
+                .padding(bottom = Dimens.bottomBarMargin)
+                .widthIn(max = 560.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppDestinations.entries.forEach { destination ->
-                val isSelected = currentDestination == destination
-                val backgroundColor by animateColorAsState(
-                    if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                    label = "bg"
+            FloatingBottomBar(current = destination, onNavigate = onNavigate, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(Dimens.spaceM))
+            FloatingActionButton(
+                onClick = onCreate,
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(Dimens.bottomBarHeight)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = stringResource(destination.createLabelRes),
+                    modifier = Modifier.size(32.dp)
                 )
-                val iconColor by animateColorAsState(
-                    if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    label = "icon"
-                )
-                
-                Surface(
-                    onClick = { onNavigate(destination) },
-                    shape = CircleShape,
-                    color = backgroundColor,
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .weight(1f)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        when (val icon = destination.icon) {
-                            is IconSource.Vector -> {
-                                Icon(
-                                    imageVector = icon.imageVector,
-                                    contentDescription = stringResource(destination.labelRes),
-                                    tint = iconColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            is IconSource.Resource -> {
-                                Icon(
-                                    painter = painterResource(id = icon.resId),
-                                    contentDescription = stringResource(destination.labelRes),
-                                    tint = iconColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-
-                        if (isSelected) {
-                            Text(
-                                text = stringResource(destination.labelRes),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = iconColor,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
             }
         }
     }
-}
-
-sealed class IconSource {
-    data class Vector(val imageVector: ImageVector) : IconSource()
-    data class Resource(val resId: Int) : IconSource()
-}
-
-enum class AppDestinations(
-    val labelRes: Int,
-    val icon: IconSource,
-) {
-    MEALS(R.string.tab_meals, IconSource.Vector(Icons.Default.Restaurant)),
-    RECIPES(R.string.tab_recipes, IconSource.Vector(Icons.AutoMirrored.Filled.MenuBook)),
-    FOOD(R.string.tab_food, IconSource.Resource(R.drawable.ic_carotte)),
 }
