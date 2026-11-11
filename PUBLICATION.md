@@ -24,7 +24,9 @@ keytool -genkeypair -v -keystore glucocalculateur-upload.jks -alias upload -keya
 
 ### 1.2 Signature locale
 
-Copiez `keystore.properties.example` en `keystore.properties` (à la racine du projet) et complétez les mots de passe. Ce fichier est ignoré par git.
+Copiez `keystore.properties.example` en `keystore.properties` (à la racine du projet) et complétez les mots de passe. Ce fichier est ignoré par git. `storeFile` est relatif à la racine du projet : `../glucocalculateur-upload.jks` si la clé est à côté du dossier, `glucocalculateur-upload.jks` si elle est dedans (les fichiers `.jks` sont ignorés par git).
+
+Si la signature n'est pas configurée, la construction de la release s'arrête avec un message explicite : un APK non signé (`app-release-unsigned.apk`) ne s'installe sur aucun téléphone.
 
 Vérification :
 
