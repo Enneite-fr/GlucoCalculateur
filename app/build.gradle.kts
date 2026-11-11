@@ -22,6 +22,23 @@ fun signingValue(property: String, env: String): String? =
 
 val releaseStoreFile = signingValue("storeFile", "SIGNING_STORE_FILE")
 
+/** Raison pour laquelle la release ne peut pas être signée, ou null si tout est en place. */
+val signingProblem: String? = when {
+    // Assistant « Generate Signed App Bundle / APK » d'Android Studio : il fournit lui-même la clé.
+    project.hasProperty("android.injected.signing.store.file") -> null
+    releaseStoreFile.isNullOrBlank() ->
+        "keystore.properties est absent (copier keystore.properties.example et le compléter)."
+    !rootProject.file(releaseStoreFile).exists() ->
+        "clé introuvable : $releaseStoreFile (chemin relatif à la racine du projet)."
+    listOf(
+        signingValue("storePassword", "SIGNING_STORE_PASSWORD"),
+        signingValue("keyAlias", "SIGNING_KEY_ALIAS"),
+        signingValue("keyPassword", "SIGNING_KEY_PASSWORD")
+    ).any { it.isNullOrBlank() } ->
+        "storePassword, keyAlias ou keyPassword est vide dans keystore.properties."
+    else -> null
+}
+
 android {
     namespace = "com.example.glucocalculateur"
     compileSdk = 36
@@ -42,9 +59,9 @@ android {
     }
 
     signingConfigs {
-        if (releaseStoreFile != null) {
+        if (signingProblem == null && !releaseStoreFile.isNullOrBlank()) {
             create("release") {
-                storeFile = rootProject.file(releaseStoreFile)
+                storeFile = rootProject.file(releaseStoreFile!!)
                 storePassword = signingValue("storePassword", "SIGNING_STORE_PASSWORD")
                 keyAlias = signingValue("keyAlias", "SIGNING_KEY_ALIAS")
                 keyPassword = signingValue("keyPassword", "SIGNING_KEY_PASSWORD")
@@ -117,4 +134,13 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Une release non signée ne s'installe sur aucun téléphone : on échoue avec un message clair
+// plutôt que de produire un APK inutilisable.
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    val problem = signingProblem
+    doFirst {
+        if (problem != null) throw GradleException("Signature de la release impossible : $problem Voir PUBLICATION.md.")
+    }
 }
