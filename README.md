@@ -61,3 +61,7 @@ This app was created to meet the needs of a loved one, so I cannot guarantee any
 
 ## VirusTotal Scan
 SHA-256: b100ee3b55a093e065086a56e40abe3e437f2a613c8c4dec24cf3fd4a51bb935
+
+## Publication
+
+Création de la clé, signature, publication automatique et mise en ligne sur le Play Store : voir [PUBLICATION.md](PUBLICATION.md). Politique de confidentialité : [PRIVACY.md](PRIVACY.md).

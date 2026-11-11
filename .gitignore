@@ -19,3 +19,8 @@ app/release/
 
 # Cache du compilateur Kotlin
 .kotlin/
+
+# Signature de publication (ne jamais versionner)
+keystore.properties
+*.jks
+*.keystore
