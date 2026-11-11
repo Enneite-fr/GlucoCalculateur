@@ -294,8 +294,14 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
 
                 TextButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, "https://github.com/Micyn/GlucoCalculateur".toUri())
-                        context.startActivity(intent)
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/Enneite-fr/GlucoCalculateur".toUri()).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     },
                     modifier = Modifier.padding(start = 0.dp),
                     contentPadding = PaddingValues(0.dp)
