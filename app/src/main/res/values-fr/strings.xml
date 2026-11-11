@@ -17,8 +17,16 @@
     <string name="no_meals_saved">Aucun repas enregistré</string>
     <string name="delete_meal_confirm_title">Supprimer le repas ?</string>
     <string name="delete_confirm_msg">Voulez-vous vraiment supprimer \'%1$s\' ?</string>
-    <string name="cascade_delete_warning">Attention : Cela supprimera également %1$d recette(s) et %2$d repas qui utilisent cet aliment.</string>
-    <string name="cascade_delete_recipe_warning">Attention : Cela supprimera également %1$d repas qui utilisent cette recette.</string>
+    <plurals name="cascade_delete_warning">
+        <item quantity="one">Cela supprimera aussi %d recette qui utilise cet aliment. Les repas enregistrés sont conservés.</item>
+        <item quantity="many">Cela supprimera aussi %d recettes qui utilisent cet aliment. Les repas enregistrés sont conservés.</item>
+        <item quantity="other">Cela supprimera aussi %d recettes qui utilisent cet aliment. Les repas enregistrés sont conservés.</item>
+    </plurals>
+    <plurals name="cascade_delete_recipe_warning">
+        <item quantity="one">Utilisée dans %d repas, qui sera conservé.</item>
+        <item quantity="many">Utilisée dans %d repas, qui seront conservés.</item>
+        <item quantity="other">Utilisée dans %d repas, qui seront conservés.</item>
+    </plurals>
     <string name="my_meals_title">Mes Repas</string>
     <string name="composition_title">Composition :</string>
     <string name="total_weight_prefix">Poids total : %1$s</string>
@@ -75,7 +83,43 @@
     <string name="food_csv_format_hint">Format : Nom ; Glucides (pour 100g)</string>
     <string name="recipe_csv_format_hint">Format : Nom Recette ; Ingrédient ; Poids (g)</string>
     <string name="export_json_title">Exporter JSON</string>
-    <string name="export_json_subtitle">Sauvegarde complète des aliments et recettes</string>
+    <string name="export_json_subtitle">Sauvegarde complète des aliments, recettes et repas</string>
     <string name="import_json_title">Importer JSON</string>
     <string name="import_json_subtitle">Restaurer depuis un fichier JSON</string>
+    <string name="csv_header_food">Aliment</string>
+    <string name="csv_header_carbs">Glucides pour 100 g</string>
+    <string name="csv_header_recipe">Recette</string>
+    <string name="csv_header_ingredient">Ingrédient</string>
+    <string name="csv_header_weight">Poids (g)</string>
+    <string name="import_done_summary">Import terminé · ajoutés : %1$d · mis à jour : %2$d · inchangés : %3$d</string>
+    <plurals name="import_already_present">
+        <item quantity="one">%d repas déjà présent</item>
+        <item quantity="many">%d repas déjà présents</item>
+        <item quantity="other">%d repas déjà présents</item>
+    </plurals>
+    <plurals name="import_issues_count">
+        <item quantity="one">%d élément ignoré</item>
+        <item quantity="many">%d éléments ignorés</item>
+        <item quantity="other">%d éléments ignorés</item>
+    </plurals>
+    <plurals name="export_done">
+        <item quantity="one">Export terminé : %d élément</item>
+        <item quantity="many">Export terminé : %d éléments</item>
+        <item quantity="other">Export terminé : %d éléments</item>
+    </plurals>
+    <string name="import_failed">Import impossible : le fichier est illisible.</string>
+    <string name="export_failed">Export impossible.</string>
+    <string name="details">Détails</string>
+    <string name="close">Fermer</string>
+    <string name="undo">Annuler</string>
+    <string name="meal_deleted">Repas supprimé</string>
+    <string name="import_report_title">Bilan de l\'import</string>
+    <string name="issue_malformed_line">Ligne %1$d illisible : %2$s</string>
+    <string name="issue_malformed_entry">Entrée illisible : %1$s</string>
+    <string name="issue_invalid_number">Ligne %1$d : valeur invalide (%2$s)</string>
+    <string name="issue_invalid_number_entry">Valeur invalide pour « %1$s »</string>
+    <string name="issue_unknown_ingredients">Recette « %1$s » ignorée : ingrédients introuvables (%2$s)</string>
+    <string name="issue_recipe_without_ingredients">Recette « %1$s » ignorée : aucun ingrédient</string>
+    <string name="issue_empty_meal">Repas « %1$s » ignoré : aucun élément utilisable</string>
+    <string name="issue_partial_meal">Repas « %1$s » importé sans certains éléments introuvables</string>
 </resources>

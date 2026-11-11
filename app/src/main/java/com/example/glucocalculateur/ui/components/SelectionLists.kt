@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
 import com.example.glucocalculateur.data.RecipeWithComponents
-import com.example.glucocalculateur.ui.CarbCalculator
+import com.example.glucocalculateur.domain.CarbCalculator
 import com.example.glucocalculateur.ui.Formatter
 
 @Composable
@@ -177,7 +177,7 @@ fun RecipeSelectionList(
         }
 
         val recipesWithCarbs = filtered.map { recipeWithComponents ->
-            val carbsPer100g = CarbCalculator.calculateRecipeCarbsPer100g(recipeWithComponents.components, foodMap)
+            val carbsPer100g = CarbCalculator.recipeCarbsPer100g(recipeWithComponents.components, foodMap)
             recipeWithComponents to carbsPer100g
         }
 
@@ -229,10 +229,10 @@ fun RecipeSelectionItem(
     var expanded by remember { mutableStateOf(false) }
     
     val totalWeight = remember(recipeWithComponents.components) {
-        CarbCalculator.calculateRecipeTotalWeight(recipeWithComponents.components)
+        CarbCalculator.recipeTotalWeight(recipeWithComponents.components)
     }
     val carbsPer100g = remember(recipeWithComponents.components, foodMap) {
-        CarbCalculator.calculateRecipeCarbsPer100g(recipeWithComponents.components, foodMap)
+        CarbCalculator.recipeCarbsPer100g(recipeWithComponents.components, foodMap)
     }
 
     ElevatedCard(
@@ -286,7 +286,7 @@ fun RecipeSelectionItem(
                 Text(stringResource(id = R.string.composition_title), style = MaterialTheme.typography.titleSmall)
                 recipeWithComponents.components.forEach { comp ->
                     val food = foodMap[comp.foodId]
-                    val itemCarbs = if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
+                    val itemCarbs = food?.let { CarbCalculator.componentCarbs(it.carbsPer100g, comp.weightGrams) } ?: 0.0
                     Text(
                         text = "• ${food?.name ?: stringResource(id = R.string.unknown_food)} : ${Formatter.formatDouble(comp.weightGrams)}g (${Formatter.formatDouble(itemCarbs)} ${stringResource(id = R.string.carbs_unit)})",
                         style = MaterialTheme.typography.bodySmall

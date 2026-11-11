@@ -3,7 +3,6 @@ package com.example.glucocalculateur.data
 /**
  * Données initiales d'aliments intégrées à l'application.
  */
-@Suppress("unused")
 val INITIAL_FOODS = listOf(
     FoodEntity(name = "Abricot, dénoyauté, cru", carbsPer100g = 9.01),
     FoodEntity(name = "Abricot, dénoyauté, sec", carbsPer100g = 59.1),

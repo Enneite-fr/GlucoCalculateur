@@ -31,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -62,6 +64,9 @@ import com.example.glucocalculateur.ui.AppLanguage
 import com.example.glucocalculateur.ui.Formatter
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import com.example.glucocalculateur.ui.ThemeMode
+import com.example.glucocalculateur.data.io.ImportReport
+import com.example.glucocalculateur.ui.components.ImportReportDialog
+import com.example.glucocalculateur.ui.components.UiEventsEffect
 import com.example.glucocalculateur.ui.components.SpeedDialAction
 import com.example.glucocalculateur.ui.components.SpeedDialFab
 import com.example.glucocalculateur.ui.screens.FoodDialog
@@ -169,12 +174,22 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
     val recipes by viewModel.allRecipes.collectAsState()
     val meals by viewModel.allMeals.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    var importReport by remember { mutableStateOf<ImportReport?>(null) }
+    UiEventsEffect(
+        events = viewModel.events,
+        snackbarHostState = snackbarHostState,
+        onUndoMealDeletion = viewModel::restoreMeal,
+        onShowImportReport = { importReport = it }
+    )
+    importReport?.let { ImportReportDialog(it, onDismiss = { importReport = null }) }
+
     // Dialogs
     if (showAddFoodDialog) {
         FoodDialog(
             onDismiss = { showAddFoodDialog = false },
             onConfirm = { name, carbs ->
-                viewModel.addFood(name, carbs)
+                viewModel.saveFood(null, name, carbs)
                 showAddFoodDialog = false
             }
         )
@@ -185,7 +200,7 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
             availableFood = foods,
             onDismiss = { showAddRecipeDialog = false },
             onConfirm = { name, components ->
-                viewModel.addRecipe(name, components)
+                viewModel.saveRecipe(null, name, components)
                 showAddRecipeDialog = false
             }
         )
@@ -197,7 +212,7 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
             availableRecipes = recipes,
             onDismiss = { showAddMealDialog = false },
             onConfirm = { name, timestamp, items ->
-                viewModel.addMeal(name, timestamp, items)
+                viewModel.saveMeal(null, name, timestamp, items)
                 showAddMealDialog = false
             }
         )
@@ -207,6 +222,12 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = if (isSettingsOpen) Modifier else Modifier.padding(bottom = 104.dp)
+                )
+            },
             topBar = {
                 if (isSettingsOpen) {
                     TopAppBar(
@@ -235,20 +256,20 @@ fun GlucoCalculateurApp(viewModel: GlucoCalculateurViewModel) {
                                 meals = meals,
                                 availableFood = foods,
                                 availableRecipes = recipes,
-                                onDeleteMeal = { viewModel.deleteMeal(it.meal) },
+                                onDeleteMeal = { viewModel.deleteMeal(it.meal.id) },
                                 onSettingsClick = { isSettingsOpen = true },
                                 viewModel = viewModel
                             )
                             AppDestinations.RECIPES -> RecipeScreen(
                                 recipes = recipes,
                                 availableFood = foods,
-                                onDeleteRecipe = { viewModel.deleteRecipe(it.recipe) },
+                                onDeleteRecipe = { viewModel.deleteRecipe(it.recipe.id) },
                                 onSettingsClick = { isSettingsOpen = true },
                                 viewModel = viewModel
                             )
                             AppDestinations.FOOD -> FoodScreen(
                                 foods = foods,
-                                onDeleteFood = { viewModel.deleteFood(it) },
+                                onDeleteFood = { viewModel.deleteFood(it.id) },
                                 onSettingsClick = { isSettingsOpen = true },
                                 viewModel = viewModel
                             )

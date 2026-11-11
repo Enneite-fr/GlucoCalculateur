@@ -16,8 +16,14 @@
     <string name="no_meals_saved">No meals saved</string>
     <string name="delete_meal_confirm_title">Delete meal?</string>
     <string name="delete_confirm_msg">Do you really want to delete \'%1$s\'?</string>
-    <string name="cascade_delete_warning">Warning: This will also delete %1$d recipe(s) and %2$d meal(s) using this food.</string>
-    <string name="cascade_delete_recipe_warning">Warning: This will also delete %1$d meal(s) using this recipe.</string>
+    <plurals name="cascade_delete_warning">
+        <item quantity="one">This will also delete %d recipe that uses this food. Saved meals are kept.</item>
+        <item quantity="other">This will also delete %d recipes that use this food. Saved meals are kept.</item>
+    </plurals>
+    <plurals name="cascade_delete_recipe_warning">
+        <item quantity="one">Used by %d meal, which will be kept.</item>
+        <item quantity="other">Used by %d meals, which will be kept.</item>
+    </plurals>
     <string name="my_meals_title">My Meals</string>
     <string name="composition_title">Composition:</string>
     <string name="total_weight_prefix">Total weight: %1$s</string>
@@ -74,7 +80,40 @@
     <string name="food_csv_format_hint">Format: Name ; Carbs (per 100g)</string>
     <string name="recipe_csv_format_hint">Format: Recipe Name ; Ingredient ; Weight (g)</string>
     <string name="export_json_title">Export JSON</string>
-    <string name="export_json_subtitle">Full backup of foods and recipes</string>
+    <string name="export_json_subtitle">Full backup of foods, recipes and meals</string>
     <string name="import_json_title">Import JSON</string>
     <string name="import_json_subtitle">Restore from a JSON file</string>
+    <string name="csv_header_food">Food</string>
+    <string name="csv_header_carbs">Carbs per 100 g</string>
+    <string name="csv_header_recipe">Recipe</string>
+    <string name="csv_header_ingredient">Ingredient</string>
+    <string name="csv_header_weight">Weight (g)</string>
+    <string name="import_done_summary">Import done · added: %1$d · updated: %2$d · unchanged: %3$d</string>
+    <plurals name="import_already_present">
+        <item quantity="one">%d meal already present</item>
+        <item quantity="other">%d meals already present</item>
+    </plurals>
+    <plurals name="import_issues_count">
+        <item quantity="one">%d item skipped</item>
+        <item quantity="other">%d items skipped</item>
+    </plurals>
+    <plurals name="export_done">
+        <item quantity="one">Export done: %d item</item>
+        <item quantity="other">Export done: %d items</item>
+    </plurals>
+    <string name="import_failed">Import failed: the file could not be read.</string>
+    <string name="export_failed">Export failed.</string>
+    <string name="details">Details</string>
+    <string name="close">Close</string>
+    <string name="undo">Undo</string>
+    <string name="meal_deleted">Meal deleted</string>
+    <string name="import_report_title">Import report</string>
+    <string name="issue_malformed_line">Line %1$d unreadable: %2$s</string>
+    <string name="issue_malformed_entry">Unreadable entry: %1$s</string>
+    <string name="issue_invalid_number">Line %1$d: invalid value (%2$s)</string>
+    <string name="issue_invalid_number_entry">Invalid value for “%1$s”</string>
+    <string name="issue_unknown_ingredients">Recipe “%1$s” skipped: unknown ingredients (%2$s)</string>
+    <string name="issue_recipe_without_ingredients">Recipe “%1$s” skipped: no ingredients</string>
+    <string name="issue_empty_meal">Meal “%1$s” skipped: no usable item</string>
+    <string name="issue_partial_meal">Meal “%1$s” imported without some items that could not be found</string>
 </resources>

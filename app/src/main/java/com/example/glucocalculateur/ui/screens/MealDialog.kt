@@ -53,6 +53,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
+import com.example.glucocalculateur.data.MealItemDraft
+import com.example.glucocalculateur.data.MealLabels
 import com.example.glucocalculateur.data.MealWithItems
 import com.example.glucocalculateur.data.RecipeWithComponents
 import com.example.glucocalculateur.ui.Formatter
@@ -72,7 +74,7 @@ fun MealDialog(
     availableFood: List<FoodEntity>,
     availableRecipes: List<RecipeWithComponents>,
     onDismiss: () -> Unit,
-    onConfirm: (String, Long, List<Triple<Long?, Long?, Double>>) -> Unit
+    onConfirm: (String, Long, List<MealItemDraft>) -> Unit
 ) {
     val initialCalendar = remember { 
         Calendar.getInstance().apply {
@@ -96,13 +98,13 @@ fun MealDialog(
     var selectedTimestamp by rememberSaveable { mutableLongStateOf(initialCalendar.timeInMillis) }
     
     val selectedItems = remember { 
-        mutableStateListOf<Triple<Long?, Long?, Double>>().apply {
-            mealWithItems?.items?.forEach { item ->
-                add(Triple(item.foodId, item.recipeId, item.weightGrams))
-            }
+        mutableStateListOf<MealItemDraft>().apply {
+            mealWithItems?.items?.forEach { item -> add(MealItemDraft.from(item)) }
         }
     }
     
+    val foodMap = remember(availableFood) { availableFood.associateBy { it.id } }
+    val recipeMap = remember(availableRecipes) { availableRecipes.associateBy { it.recipe.id } }
     var showItemPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
@@ -219,12 +221,8 @@ fun MealDialog(
                 
                 LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
                     itemsIndexed(selectedItems) { index, item ->
-                        val (foodId, recipeId, weight) = item
-                        val label = if (foodId != null) {
-                            availableFood.find { it.id == foodId }?.name ?: stringResource(id = R.string.unknown_food)
-                        } else {
-                            availableRecipes.find { it.recipe.id == recipeId }?.recipe?.name ?: stringResource(id = R.string.unknown_recipe)
-                        }
+                        val weight = item.weightGrams
+                        val label = MealLabels.of(item, foodMap, recipeMap) ?: stringResource(id = R.string.unknown_food)
                         
                         Row(
                             modifier = Modifier
@@ -264,19 +262,16 @@ fun MealDialog(
 
     if (itemToEditIndex != null && itemToEditIndex!! in selectedItems.indices) {
         val index = itemToEditIndex!!
-        val (foodId, recipeId, currentWeight) = selectedItems[index]
-        val label = if (foodId != null) {
-            availableFood.find { it.id == foodId }?.name ?: stringResource(id = R.string.unknown_food)
-        } else {
-            availableRecipes.find { it.recipe.id == recipeId }?.recipe?.name ?: stringResource(id = R.string.unknown_recipe)
-        }
+        val item = selectedItems[index]
+        val currentWeight = item.weightGrams
+        val label = MealLabels.of(item, foodMap, recipeMap) ?: stringResource(id = R.string.unknown_food)
 
         WeightInputDialog(
             title = label,
             initialWeight = currentWeight,
             onDismiss = { itemToEditIndex = null },
             onConfirm = { newWeight ->
-                selectedItems[index] = Triple(foodId, recipeId, newWeight)
+                selectedItems[index] = item.withWeight(newWeight)
                 itemToEditIndex = null
             }
         )
@@ -288,7 +283,7 @@ fun MealDialog(
             availableRecipes = availableRecipes,
             onDismiss = { showItemPicker = false },
             onItemSelected = { foodId, recipeId, weight ->
-                selectedItems.add(Triple(foodId, recipeId, weight))
+                selectedItems.add(if (foodId != null) MealItemDraft.Food(foodId, weight) else MealItemDraft.Recipe(recipeId ?: 0L, weight))
                 showItemPicker = false
             }
         )

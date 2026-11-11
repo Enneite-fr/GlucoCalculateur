@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.glucocalculateur.R
@@ -55,14 +56,14 @@ private fun FoodScreenContent(
 ) {
     var foodToDelete by remember { mutableStateOf<FoodEntity?>(null) }
     var foodToEdit by remember { mutableStateOf<FoodEntity?>(null) }
-    var impact by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var impact by remember { mutableStateOf<Int?>(null) }
     
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var currentSort by rememberSaveable { mutableStateOf(SortOption.NAME_ASC) }
 
     LaunchedEffect(foodToDelete) {
         foodToDelete?.let {
-            impact = viewModel.getFoodImpact(it)
+            impact = viewModel.countRecipesUsingFood(it.id)
         } ?: run {
             impact = null
         }
@@ -73,7 +74,7 @@ private fun FoodScreenContent(
             food = foodToEdit,
             onDismiss = { foodToEdit = null },
             onConfirm = { name, carbs ->
-                foodToEdit?.let { viewModel.updateFood(it.id, name, carbs) }
+                foodToEdit?.let { viewModel.saveFood(it.id, name, carbs) }
                 foodToEdit = null
             }
         )
@@ -86,11 +87,11 @@ private fun FoodScreenContent(
             text = {
                 Column {
                     Text(stringResource(id = R.string.delete_confirm_msg, foodToDelete?.name ?: ""))
-                    impact?.let { (recipesCount, mealsCount) ->
-                        if ((recipesCount > 0 || mealsCount > 0)) {
+                    impact?.let { recipesCount ->
+                        if (recipesCount > 0) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = stringResource(id = R.string.cascade_delete_warning, recipesCount, mealsCount),
+                                text = pluralStringResource(R.plurals.cascade_delete_warning, recipesCount, recipesCount),
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall
                             )

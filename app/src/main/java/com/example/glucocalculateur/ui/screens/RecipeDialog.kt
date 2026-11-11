@@ -42,6 +42,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
+import com.example.glucocalculateur.data.RecipeComponentDraft
 import com.example.glucocalculateur.data.RecipeWithComponents
 import com.example.glucocalculateur.ui.Formatter
 import com.example.glucocalculateur.ui.components.FoodSelectionList
@@ -54,13 +55,13 @@ fun RecipeDialog(
     recipe: RecipeWithComponents? = null,
     availableFood: List<FoodEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (String, List<Pair<Long, Double>>) -> Unit
+    onConfirm: (String, List<RecipeComponentDraft>) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf(recipe?.recipe?.name ?: "") }
     val selectedComponents = remember { 
-        mutableStateListOf<Pair<Long, Double>>().apply {
+        mutableStateListOf<RecipeComponentDraft>().apply {
             recipe?.components?.forEach { comp ->
-                add(comp.foodId to comp.weightGrams)
+                add(RecipeComponentDraft(comp.foodId, comp.weightGrams))
             }
         }
     }
@@ -144,7 +145,7 @@ fun RecipeDialog(
             initialWeight = currentWeight,
             onDismiss = { componentToEditIndex = null },
             onConfirm = { newWeight ->
-                selectedComponents[index] = foodId to newWeight
+                selectedComponents[index] = RecipeComponentDraft(foodId, newWeight)
                 componentToEditIndex = null
             }
         )
@@ -155,7 +156,7 @@ fun RecipeDialog(
             availableFood = availableFood,
             onDismiss = { showFoodPicker = false },
             onFoodSelected = { food, weight ->
-                selectedComponents.add(food.id to weight)
+                selectedComponents.add(RecipeComponentDraft(food.id, weight))
                 showFoodPicker = false
             }
         )

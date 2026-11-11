@@ -3,10 +3,6 @@ package com.example.glucocalculateur.ui
 import android.content.Context
 import android.content.res.Configuration
 import android.os.LocaleList
-import com.example.glucocalculateur.data.FoodEntity
-import com.example.glucocalculateur.data.MealItemEntity
-import com.example.glucocalculateur.data.RecipeComponentEntity
-import com.example.glucocalculateur.data.RecipeWithComponents
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -59,53 +55,5 @@ object Formatter {
         val localeList = LocaleList(locale)
         config.setLocales(localeList)
         resources.updateConfiguration(config, resources.displayMetrics)
-    }
-}
-
-object CarbCalculator {
-    fun calculateRecipeTotalWeight(components: List<RecipeComponentEntity>): Double {
-        return components.sumOf { it.weightGrams }
-    }
-
-    fun calculateRecipeCarbsPer100g(
-        components: List<RecipeComponentEntity>,
-        foodMap: Map<Long, FoodEntity>
-    ): Double {
-        val totalWeight = calculateRecipeTotalWeight(components)
-        if (totalWeight <= 0.0) return 0.0
-        val totalCarbs = components.sumOf { comp ->
-            val food = foodMap[comp.foodId]
-            if (food != null) (food.carbsPer100g / 100.0) * comp.weightGrams else 0.0
-        }
-        return (totalCarbs / totalWeight) * 100.0
-    }
-
-    fun calculateMealItemCarbs(
-        item: MealItemEntity,
-        foodMap: Map<Long, FoodEntity>,
-        recipeMap: Map<Long, RecipeWithComponents>
-    ): Double {
-        return when {
-            item.foodId != null -> {
-                val food = foodMap[item.foodId]
-                if (food != null) (food.carbsPer100g / 100.0) * item.weightGrams else 0.0
-            }
-            item.recipeId != null -> {
-                val recipeWithComponents = recipeMap[item.recipeId]
-                if (recipeWithComponents != null) {
-                    val rCarbsPer100g = calculateRecipeCarbsPer100g(recipeWithComponents.components, foodMap)
-                    (rCarbsPer100g / 100.0) * item.weightGrams
-                } else 0.0
-            }
-            else -> 0.0
-        }
-    }
-
-    fun calculateMealTotalCarbs(
-        items: List<MealItemEntity>,
-        foodMap: Map<Long, FoodEntity>,
-        recipeMap: Map<Long, RecipeWithComponents>
-    ): Double {
-        return items.sumOf { calculateMealItemCarbs(it, foodMap, recipeMap) }
     }
 }

@@ -59,37 +59,37 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
     val exportFoodLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
-        uri?.let { viewModel.exportFoodsToCsv(context, it) }
+        uri?.let { viewModel.exportFoodsCsv(it) }
     }
 
     val importFoodLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.importFoodsFromCsv(context, it) }
+        uri?.let { viewModel.importFoodsCsv(it) }
     }
 
     val exportRecipeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri: Uri? ->
-        uri?.let { viewModel.exportRecipesToCsv(context, it) }
+        uri?.let { viewModel.exportRecipesCsv(it) }
     }
 
     val importRecipeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.importRecipesFromCsv(context, it) }
+        uri?.let { viewModel.importRecipesCsv(it) }
     }
 
     val exportJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
-        uri?.let { viewModel.exportDataToUri(context, it) }
+        uri?.let { viewModel.exportBackup(it) }
     }
 
     val importJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { viewModel.importDataFromUri(context, it) }
+        uri?.let { viewModel.importBackup(it) }
     }
 
     Column(
@@ -234,7 +234,7 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                 }
 
                 OutlinedButton(
-                    onClick = { importJsonLauncher.launch(arrayOf("application/json")) },
+                    onClick = { importJsonLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp)
                 ) {

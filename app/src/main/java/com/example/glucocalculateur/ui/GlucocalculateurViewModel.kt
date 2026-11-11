@@ -6,23 +6,32 @@ import android.net.Uri
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.AppDatabase
 import com.example.glucocalculateur.data.FoodEntity
-import com.example.glucocalculateur.data.MealEntity
-import com.example.glucocalculateur.data.MealItemEntity
+import com.example.glucocalculateur.data.GlucoRepository
+import com.example.glucocalculateur.data.MealItemDraft
 import com.example.glucocalculateur.data.MealWithItems
-import com.example.glucocalculateur.data.RecipeComponentEntity
-import com.example.glucocalculateur.data.RecipeEntity
+import com.example.glucocalculateur.data.RecipeComponentDraft
 import com.example.glucocalculateur.data.RecipeWithComponents
+import com.example.glucocalculateur.data.io.CsvCodec
+import com.example.glucocalculateur.data.io.ImportReport
+import com.example.glucocalculateur.data.io.JsonBackupCodec
+import com.example.glucocalculateur.data.io.RecipeRow
+import com.example.glucocalculateur.data.io.TextDecoding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.coroutines.withContext
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
 enum class ThemeMode {
     LIGHT, DARK, AUTO
@@ -35,16 +44,27 @@ enum class AppLanguage(val code: String, val country: String, val label: String)
     ENGLISH_GB("en", "GB", "English (United Kingdom)")
 }
 
-class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = AppDatabase.getDatabase(application)
-    private val foodDao = db.foodDao()
-    private val recipeDao = db.recipeDao()
-    private val mealDao = db.mealDao()
+/** Événements ponctuels à afficher (Snackbar). */
+sealed interface UiEvent {
+    data class ImportFinished(val report: ImportReport) : UiEvent
+    data class ExportFinished(val itemCount: Int) : UiEvent
+    data class OperationFailed(val operation: FileOperation, val detail: String?) : UiEvent
+    data class MealDeleted(val meal: MealWithItems) : UiEvent
+}
 
+enum class FileOperation { IMPORT, EXPORT }
+
+class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = GlucoRepository(AppDatabase.getDatabase(application))
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    
+
+    private val _events = Channel<UiEvent>(Channel.BUFFERED)
+    val events: Flow<UiEvent> = _events.receiveAsFlow()
+
+    // --- Préférences ---
+
     private val _themeMode = MutableStateFlow(
-        ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.AUTO.name) ?: ThemeMode.AUTO.name)
+        runCatching { ThemeMode.valueOf(prefs.getString("theme_mode", null) ?: "") }.getOrDefault(ThemeMode.AUTO)
     )
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
@@ -54,7 +74,7 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
     }
 
     private val _language = MutableStateFlow(
-        AppLanguage.valueOf(prefs.getString("app_language", AppLanguage.SYSTEM.name) ?: AppLanguage.SYSTEM.name)
+        runCatching { AppLanguage.valueOf(prefs.getString("app_language", null) ?: "") }.getOrDefault(AppLanguage.SYSTEM)
     )
     val language: StateFlow<AppLanguage> = _language.asStateFlow()
 
@@ -63,347 +83,133 @@ class GlucoCalculateurViewModel(application: Application) : AndroidViewModel(app
         _language.value = lang
     }
 
-    fun exportDataToUri(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val foods = allFood.value
-                val recipes = allRecipes.value
-                val json = JSONObject()
-                
-                val foodArray = JSONArray()
-                foods.forEach { food ->
-                    foodArray.put(JSONObject().apply {
-                        put("name", food.name)
-                        put("carbsPer100g", food.carbsPer100g)
-                    })
-                }
-                json.put("foods", foodArray)
-                
-                val recipeArray = JSONArray()
-                recipes.forEach { recipe ->
-                    recipeArray.put(JSONObject().apply {
-                        put("name", recipe.recipe.name)
-                        val componentsArray = JSONArray()
-                        recipe.components.forEach { comp ->
-                            val food = foods.find { it.id == comp.foodId }
-                            componentsArray.put(JSONObject().apply {
-                                put("foodName", food?.name)
-                                put("weightGrams", comp.weightGrams)
-                            })
-                        }
-                        put("components", componentsArray)
-                    })
-                }
-                json.put("recipes", recipeArray)
-                
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(json.toString(2).toByteArray())
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
+    // --- Données ---
 
-    fun importDataFromUri(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val jsonString = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                if (jsonString != null) {
-                    val json = JSONObject(jsonString)
-                    
-                    // Import foods (upsert by name)
-                    val foodArray = json.optJSONArray("foods")
-                    if (foodArray != null) {
-                        for (i in 0 until foodArray.length()) {
-                            val foodJson = foodArray.optJSONObject(i) ?: continue
-                            val name = foodJson.optString("name", "").trim()
-                            val carbs = foodJson.optDouble("carbsPer100g", Double.NaN)
-                            if (name.isNotEmpty() && !carbs.isNaN()) {
-                                val existing = foodDao.getFoodByNameSync(name)
-                                if (existing != null) {
-                                    foodDao.updateFood(existing.copy(carbsPer100g = carbs))
-                                } else {
-                                    foodDao.insertFood(FoodEntity(name = name, carbsPer100g = carbs))
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Re-fetch foods to get updated IDs for recipes
-                    val currentFoods = foodDao.getAllFoodSync()
-                    val foodMapByName = currentFoods.associateBy { it.name.lowercase() }
-                    
-                    // Import recipes (upsert by name)
-                    val recipeArray = json.optJSONArray("recipes")
-                    if (recipeArray != null) {
-                        for (i in 0 until recipeArray.length()) {
-                            val recipeJson = recipeArray.optJSONObject(i) ?: continue
-                            val recipeName = recipeJson.optString("name", "").trim()
-                            if (recipeName.isEmpty()) continue
-
-                            var recipeId = recipeDao.getRecipeByNameSync(recipeName)?.id
-                            if (recipeId == null) {
-                                recipeId = recipeDao.insertRecipe(RecipeEntity(name = recipeName))
-                            } else {
-                                recipeDao.updateRecipe(RecipeEntity(id = recipeId, name = recipeName))
-                                recipeDao.deleteRecipeComponents(recipeId)
-                            }
-                            
-                            val componentsArray = recipeJson.optJSONArray("components")
-                            if (componentsArray != null) {
-                                val componentEntities = mutableListOf<RecipeComponentEntity>()
-                                for (j in 0 until componentsArray.length()) {
-                                    val compJson = componentsArray.optJSONObject(j) ?: continue
-                                    val foodName = compJson.optString("foodName", "").trim()
-                                    val weight = compJson.optDouble("weightGrams", 0.0)
-                                    
-                                    val food = foodMapByName[foodName.lowercase()]
-                                    if (food != null && weight > 0) {
-                                        componentEntities.add(RecipeComponentEntity(
-                                            recipeId = recipeId,
-                                            foodId = food.id,
-                                            weightGrams = weight
-                                        ))
-                                    }
-                                }
-                                if (componentEntities.isNotEmpty()) {
-                                    recipeDao.insertRecipeComponents(componentEntities)
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun exportFoodsToCsv(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val foods = allFood.value
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.bufferedWriter().use { writer ->
-                        foods.forEach { food ->
-                            writer.write("${food.name};${food.carbsPer100g}\n")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun importFoodsFromCsv(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
-                val bytes = inputStream.readBytes()
-                
-                val utf8Content = String(bytes, Charsets.UTF_8)
-                val content = if (utf8Content.contains("\uFFFD")) {
-                    String(bytes, charset("ISO-8859-1"))
-                } else {
-                    utf8Content
-                }
-
-                content.lineSequence().forEach { rawLine ->
-                    val line = rawLine.trim().removeSurrounding("\"")
-                    if (line.isBlank() || line.startsWith("#")) return@forEach
-                    
-                    val parts = line.split(";")
-                    if (parts.size >= 2) {
-                        val name = parts[0].trim().removeSurrounding("\"").trim()
-                        val carbsPart = parts[1].trim().removeSurrounding("\"").trim().replace(",", ".")
-                        val carbs = carbsPart.toDoubleOrNull() ?: return@forEach // Ignore header lines and invalid entries
-                        
-                        if (name.isNotEmpty() && carbs >= 0) {
-                            val existing = foodDao.getFoodByNameSync(name)
-                            if (existing != null) {
-                                foodDao.updateFood(existing.copy(carbsPer100g = carbs))
-                            } else {
-                                foodDao.insertFood(FoodEntity(name = name, carbsPer100g = carbs))
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun exportRecipesToCsv(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val recipes = allRecipes.value
-                val foods = foodDao.getAllFoodSync()
-                val foodMap = foods.associateBy { it.id }
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.bufferedWriter().use { writer ->
-                        recipes.forEach { recipe ->
-                            recipe.components.forEach { comp ->
-                                val foodName = foodMap[comp.foodId]?.name ?: "Inconnu"
-                                writer.write("${recipe.recipe.name};$foodName;${comp.weightGrams}\n")
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun importRecipesFromCsv(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val currentFoods = foodDao.getAllFoodSync()
-                val foodMapByName = currentFoods.associateBy { it.name.lowercase() }
-                val recipeData = mutableMapOf<String, MutableList<Pair<String, Double>>>()
-                
-                context.contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
-                    lines.forEach { line ->
-                        if (line.isBlank() || line.startsWith("#")) return@forEach
-                        val parts = line.split(";")
-                        if (parts.size >= 3) {
-                            val recipeName = parts[0].trim().removeSurrounding("\"").trim()
-                            val foodName = parts[1].trim().removeSurrounding("\"").trim()
-                            val weight = parts[2].trim().removeSurrounding("\"").replace(",", ".").toDoubleOrNull() ?: return@forEach // Ignore header lines
-                            
-                            if (recipeName.isNotEmpty() && foodName.isNotEmpty() && weight > 0) {
-                                recipeData.getOrPut(recipeName) { mutableListOf() }.add(foodName to weight)
-                            }
-                        }
-                    }
-                }
-                
-                recipeData.forEach { (recipeName, components) ->
-                    var recipeId = recipeDao.getRecipeByNameSync(recipeName)?.id
-                    if (recipeId == null) {
-                        recipeId = recipeDao.insertRecipe(RecipeEntity(name = recipeName))
-                    } else {
-                        recipeDao.updateRecipe(RecipeEntity(id = recipeId, name = recipeName))
-                        recipeDao.deleteRecipeComponents(recipeId)
-                    }
-                    
-                    val componentEntities = components.mapNotNull { (foodName, weight) ->
-                        val food = foodMapByName[foodName.lowercase()]
-                        if (food != null) {
-                            RecipeComponentEntity(recipeId = recipeId, foodId = food.id, weightGrams = weight)
-                        } else {
-                            null
-                        }
-                    }
-                    if (componentEntities.isNotEmpty()) {
-                        recipeDao.insertRecipeComponents(componentEntities)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    val allFood: StateFlow<List<FoodEntity>> = foodDao.getAllFood()
+    val allFood: StateFlow<List<FoodEntity>> = repository.foods
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allRecipes: StateFlow<List<RecipeWithComponents>> = recipeDao.getAllRecipesWithComponents()
+    val allRecipes: StateFlow<List<RecipeWithComponents>> = repository.recipes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allMeals: StateFlow<List<MealWithItems>> = mealDao.getAllMealsWithItems()
+    val allMeals: StateFlow<List<MealWithItems>> = repository.meals
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addFood(name: String, carbsPer100g: Double) {
+    /** Crée (`id == null`) ou modifie un aliment. */
+    fun saveFood(id: Long?, name: String, carbsPer100g: Double) {
+        viewModelScope.launch { repository.saveFood(id, name, carbsPer100g) }
+    }
+
+    fun deleteFood(foodId: Long) {
+        viewModelScope.launch { repository.deleteFood(foodId) }
+    }
+
+    suspend fun countRecipesUsingFood(foodId: Long): Int = repository.countRecipesUsingFood(foodId)
+
+    fun saveRecipe(id: Long?, name: String, components: List<RecipeComponentDraft>) {
+        viewModelScope.launch { repository.saveRecipe(id, name, components) }
+    }
+
+    fun deleteRecipe(recipeId: Long) {
+        viewModelScope.launch { repository.deleteRecipe(recipeId) }
+    }
+
+    suspend fun countMealsUsingRecipe(recipeId: Long): Int = repository.countMealsUsingRecipe(recipeId)
+
+    fun saveMeal(id: Long?, name: String, timestamp: Long, items: List<MealItemDraft>) {
+        viewModelScope.launch { repository.saveMeal(id, name, timestamp, items) }
+    }
+
+    fun deleteMeal(mealId: Long) {
         viewModelScope.launch {
-            foodDao.insertFood(FoodEntity(name = name, carbsPer100g = carbsPer100g))
+            repository.deleteMeal(mealId)?.let { _events.send(UiEvent.MealDeleted(it)) }
         }
     }
 
-    fun updateFood(id: Long, name: String, carbsPer100g: Double) {
-        viewModelScope.launch {
-            foodDao.updateFood(FoodEntity(id = id, name = name, carbsPer100g = carbsPer100g))
+    fun restoreMeal(meal: MealWithItems) {
+        viewModelScope.launch { runCatching { repository.restoreMeal(meal) } }
+    }
+
+    // --- Import / export ---
+
+    fun exportFoodsCsv(uri: Uri) = export(uri) {
+        val foods = repository.exportBackup().foods
+        val header = listOf(string(R.string.csv_header_food), string(R.string.csv_header_carbs))
+        CsvCodec.writeFoods(foods, header, decimalSeparator()) to foods.size
+    }
+
+    fun exportRecipesCsv(uri: Uri) = export(uri) {
+        val recipes = repository.exportBackup().recipes
+        val rows = recipes.flatMap { recipe ->
+            recipe.components.map { RecipeRow(recipe.name, it.foodName, it.weightGrams) }
         }
+        val header = listOf(
+            string(R.string.csv_header_recipe),
+            string(R.string.csv_header_ingredient),
+            string(R.string.csv_header_weight)
+        )
+        CsvCodec.writeRecipes(rows, header, decimalSeparator()) to recipes.size
     }
 
-    fun deleteFood(food: FoodEntity) {
+    fun exportBackup(uri: Uri) = export(uri) {
+        val backup = repository.exportBackup()
+        JsonBackupCodec.encode(backup) to (backup.foods.size + backup.recipes.size + backup.meals.size)
+    }
+
+    fun importFoodsCsv(uri: Uri) = import(uri) { text ->
+        val parsed = CsvCodec.parseFoods(text)
+        repository.importFoods(parsed.rows).let { it.copy(issues = parsed.issues + it.issues) }
+    }
+
+    fun importRecipesCsv(uri: Uri) = import(uri) { text ->
+        val parsed = CsvCodec.parseRecipes(text)
+        repository.importRecipes(parsed.rows).let { it.copy(issues = parsed.issues + it.issues) }
+    }
+
+    fun importBackup(uri: Uri) = import(uri) { text ->
+        val decoded = JsonBackupCodec.decode(text)
+        repository.importBackup(decoded.backup).let { it.copy(issues = decoded.issues + it.issues) }
+    }
+
+    private fun export(uri: Uri, build: suspend () -> Pair<String, Int>) {
         viewModelScope.launch {
-            // Ordre : Repas liés aux recettes liées à l'aliment -> Recettes liées à l'aliment -> Repas liés à l'aliment -> Aliment
-            val recipes = foodDao.getRecipesUsingFood(food.id)
-            recipes.forEach { mealDao.deleteMealsUsingRecipe(it.id) }
-            mealDao.deleteRecipesUsingFood(food.id)
-            mealDao.deleteMealsUsingFood(food.id)
-            foodDao.deleteFood(food)
-        }
-    }
-
-    suspend fun getFoodImpact(food: FoodEntity): Pair<Int, Int> {
-        val recipes = foodDao.getRecipesUsingFood(food.id)
-        val mealsFromFood = foodDao.getMealsUsingFood(food.id)
-        val mealsFromRecipes = recipes.flatMap { recipeDao.getMealsUsingRecipe(it.id) }
-        val totalMeals = (mealsFromFood + mealsFromRecipes).distinctBy { it.id }.size
-        return recipes.size to totalMeals
-    }
-
-    fun addRecipe(name: String, components: List<Pair<Long, Double>>) {
-        viewModelScope.launch {
-            val recipeId = recipeDao.insertRecipe(RecipeEntity(name = name))
-            val componentEntities = components.map { (foodId, weight) ->
-                RecipeComponentEntity(recipeId = recipeId, foodId = foodId, weightGrams = weight)
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val (text, count) = build()
+                    val stream = getApplication<Application>().contentResolver.openOutputStream(uri, "wt")
+                        ?: error("Flux d'écriture indisponible")
+                    stream.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                    count
+                }
             }
-            recipeDao.insertRecipeComponents(componentEntities)
+            _events.send(
+                result.fold(
+                    onSuccess = { UiEvent.ExportFinished(it) },
+                    onFailure = { UiEvent.OperationFailed(FileOperation.EXPORT, it.message) }
+                )
+            )
         }
     }
 
-    fun updateRecipe(id: Long, name: String, components: List<Pair<Long, Double>>) {
+    private fun import(uri: Uri, apply: suspend (String) -> ImportReport) {
         viewModelScope.launch {
-            recipeDao.updateRecipe(RecipeEntity(id = id, name = name))
-            recipeDao.deleteRecipeComponents(id)
-            val componentEntities = components.map { (foodId, weight) ->
-                RecipeComponentEntity(recipeId = id, foodId = foodId, weightGrams = weight)
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val bytes = getApplication<Application>().contentResolver.openInputStream(uri)
+                        ?.use { it.readBytes() }
+                        ?: error("Flux de lecture indisponible")
+                    apply(TextDecoding.decode(bytes))
+                }
             }
-            recipeDao.insertRecipeComponents(componentEntities)
+            _events.send(
+                result.fold(
+                    onSuccess = { UiEvent.ImportFinished(it) },
+                    onFailure = { UiEvent.OperationFailed(FileOperation.IMPORT, it.message) }
+                )
+            )
         }
     }
 
-    fun deleteRecipe(recipe: RecipeEntity) {
-        viewModelScope.launch {
-            mealDao.deleteMealsUsingRecipe(recipe.id)
-            recipeDao.deleteRecipe(recipe)
-        }
-    }
+    private fun string(id: Int): String = getApplication<Application>().getString(id)
 
-    suspend fun getRecipeImpact(recipe: RecipeEntity): Int {
-        return recipeDao.getMealsUsingRecipe(recipe.id).size
-    }
-
-    fun addMeal(name: String, timestamp: Long, items: List<Triple<Long?, Long?, Double>>) {
-        viewModelScope.launch {
-            val mealId = mealDao.insertMeal(MealEntity(name = name, dateTimestamp = timestamp))
-            val itemEntities = items.map { (foodId, recipeId, weight) ->
-                MealItemEntity(mealId = mealId, foodId = foodId, recipeId = recipeId, weightGrams = weight)
-            }
-            mealDao.insertMealItems(itemEntities)
-        }
-    }
-
-    fun updateMeal(id: Long, name: String, timestamp: Long, items: List<Triple<Long?, Long?, Double>>) {
-        viewModelScope.launch {
-            mealDao.updateMeal(MealEntity(id = id, name = name, dateTimestamp = timestamp))
-            mealDao.deleteMealItems(id)
-            val itemEntities = items.map { (foodId, recipeId, weight) ->
-                MealItemEntity(mealId = id, foodId = foodId, recipeId = recipeId, weightGrams = weight)
-            }
-            mealDao.insertMealItems(itemEntities)
-        }
-    }
-
-    fun deleteMeal(meal: MealEntity) {
-        viewModelScope.launch {
-            mealDao.deleteMeal(meal)
-        }
-    }
+    private fun decimalSeparator(): Char = DecimalFormatSymbols.getInstance(Locale.getDefault()).decimalSeparator
 }

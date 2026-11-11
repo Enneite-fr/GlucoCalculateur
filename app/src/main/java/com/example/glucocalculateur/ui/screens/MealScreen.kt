@@ -60,7 +60,8 @@ import com.example.glucocalculateur.R
 import com.example.glucocalculateur.data.FoodEntity
 import com.example.glucocalculateur.data.MealWithItems
 import com.example.glucocalculateur.data.RecipeWithComponents
-import com.example.glucocalculateur.ui.CarbCalculator
+import com.example.glucocalculateur.domain.CarbCalculator
+import com.example.glucocalculateur.data.MealLabels
 import com.example.glucocalculateur.ui.Formatter
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import kotlinx.coroutines.launch
@@ -148,7 +149,7 @@ private fun MealScreenContent(
             availableRecipes = availableRecipes,
             onDismiss = { mealToEdit = null },
             onConfirm = { name, timestamp, items ->
-                mealToEdit?.let { viewModel.updateMeal(it.meal.id, name, timestamp, items) }
+                mealToEdit?.let { viewModel.saveMeal(it.meal.id, name, timestamp, items) }
                 mealToEdit = null
             }
         )
@@ -439,7 +440,7 @@ fun MealItem(
     var expanded by remember { mutableStateOf(false) }
     
     val totalCarbs = remember(mealWithItems.items, foodMap, recipeMap) {
-        CarbCalculator.calculateMealTotalCarbs(mealWithItems.items, foodMap, recipeMap)
+        CarbCalculator.mealTotalCarbs(mealWithItems.items, foodMap, recipeMap)
     }
 
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
@@ -492,15 +493,9 @@ fun MealItem(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Text(stringResource(id = R.string.meal_details_title), style = MaterialTheme.typography.titleSmall)
                 mealWithItems.items.forEach { item ->
-                    val label = if (item.foodId != null) {
-                        foodMap[item.foodId]?.name ?: stringResource(id = R.string.unknown_food)
-                    } else if (item.recipeId != null) {
-                        recipeMap[item.recipeId]?.recipe?.name ?: stringResource(id = R.string.unknown_recipe)
-                    } else {
-                        stringResource(id = R.string.unknown_food)
-                    }
+                    val label = MealLabels.of(item, foodMap, recipeMap) ?: stringResource(id = R.string.unknown_food)
                     
-                    val itemCarbs = CarbCalculator.calculateMealItemCarbs(item, foodMap, recipeMap)
+                    val itemCarbs = CarbCalculator.mealItemCarbs(item, foodMap, recipeMap)
 
                     Text(
                         text = "• $label : ${Formatter.formatDouble(item.weightGrams)}g (${Formatter.formatDouble(itemCarbs)} ${stringResource(id = R.string.carbs_unit)})",

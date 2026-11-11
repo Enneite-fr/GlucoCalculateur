@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.glucocalculateur.R
@@ -67,7 +68,7 @@ private fun RecipeScreenContent(
 
     LaunchedEffect(recipeToDelete) {
         recipeToDelete?.let {
-            mealsCount = viewModel.getRecipeImpact(it.recipe)
+            mealsCount = viewModel.countMealsUsingRecipe(it.recipe.id)
         } ?: run {
             mealsCount = 0
         }
@@ -79,7 +80,7 @@ private fun RecipeScreenContent(
             availableFood = availableFood,
             onDismiss = { recipeToEdit = null },
             onConfirm = { name, components ->
-                recipeToEdit?.let { viewModel.updateRecipe(it.recipe.id, name, components) }
+                recipeToEdit?.let { viewModel.saveRecipe(it.recipe.id, name, components) }
                 recipeToEdit = null
             }
         )
@@ -95,8 +96,8 @@ private fun RecipeScreenContent(
                     if (mealsCount > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = stringResource(id = R.string.cascade_delete_recipe_warning, mealsCount),
-                            color = MaterialTheme.colorScheme.error,
+                            text = pluralStringResource(R.plurals.cascade_delete_recipe_warning, mealsCount, mealsCount),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
