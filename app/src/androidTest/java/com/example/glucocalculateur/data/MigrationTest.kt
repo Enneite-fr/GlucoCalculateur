@@ -20,7 +20,7 @@ class MigrationTest {
     fun migrate2To3_keepsDataAndMergesDuplicateFoods() {
         helper.createDatabase(dbName, 2).apply {
             execSQL("INSERT INTO food (id, name, carbsPer100g) VALUES (1, 'Pomme', 12.0)")
-            execSQL("INSERT INTO food (id, name, carbsPer100g) VALUES (2, '﻿pomme ', 13.0)")
+            execSQL("INSERT INTO food (id, name, carbsPer100g) VALUES (2, '\uFEFFpomme ', 13.0)")
             execSQL("INSERT INTO food (id, name, carbsPer100g) VALUES (3, 'Riz', 28.0)")
             execSQL("INSERT INTO recipes (id, name) VALUES (1, 'Compote')")
             execSQL("INSERT INTO recipe_components (recipeId, foodId, weightGrams) VALUES (1, 2, 100.0)")

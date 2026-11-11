@@ -10,7 +10,7 @@ object FoodNames {
     private val spaces = Regex("\\s+")
 
     /** Nom tel qu'il doit être enregistré : sans BOM, sans espaces superflus. */
-    fun clean(raw: String): String = raw.replace("﻿", "").trim().replace(spaces, " ")
+    fun clean(raw: String): String = raw.replace("\uFEFF", "").trim().replace(spaces, " ")
 
     /** Clé de comparaison : nom nettoyé, insensible à la casse (y compris les lettres accentuées). */
     fun key(raw: String): String = clean(raw).lowercase(Locale.ROOT)

@@ -6,7 +6,7 @@ import org.junit.Test
 class FoodNamesTest {
     @Test
     fun cleanRemovesBomAndExtraSpaces() {
-        assertEquals("Pâte brisée", FoodNames.clean("﻿  Pâte   brisée "))
+        assertEquals("Pâte brisée", FoodNames.clean("\uFEFF  Pâte   brisée "))
     }
 
     @Test

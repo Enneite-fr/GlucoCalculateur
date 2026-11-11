@@ -3,37 +3,43 @@ package com.example.glucocalculateur.ui.screens
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -41,70 +47,73 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.glucocalculateur.R
 import com.example.glucocalculateur.ui.AppLanguage
 import com.example.glucocalculateur.ui.GlucoCalculateurViewModel
 import com.example.glucocalculateur.ui.ThemeMode
+import com.example.glucocalculateur.ui.components.ImportExportRow
+import com.example.glucocalculateur.ui.theme.Dimens
+import java.time.LocalDate
 
 private const val GITHUB_URL = "https://github.com/Enneite-fr/GlucoCalculateur"
+private val CSV_TYPES = arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream")
+private val JSON_TYPES = arrayOf("application/json", "text/plain", "application/octet-stream")
 
+/** Nom de fichier d'export neutre et daté : `gluco-foods-2026-11-11.csv`. */
+private fun exportFileName(kind: String, extension: String) = "gluco-$kind-${LocalDate.now()}.$extension"
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
-    val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
-    val themeMode by viewModel.themeMode.collectAsState()
+fun SettingsScreen(viewModel: GlucoCalculateurViewModel, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val language = remember { AppLanguage.current() }
-    
-    val exportFoodLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri: Uri? ->
-        uri?.let { viewModel.exportFoodsCsv(it) }
+
+    val exportFoods = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
+        uri?.let(viewModel::exportFoodsCsv)
+    }
+    val importFoods = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let(viewModel::importFoodsCsv)
+    }
+    val exportRecipes = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri: Uri? ->
+        uri?.let(viewModel::exportRecipesCsv)
+    }
+    val importRecipes = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let(viewModel::importRecipesCsv)
+    }
+    val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+        uri?.let(viewModel::exportBackup)
+    }
+    val importBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        uri?.let(viewModel::importBackup)
     }
 
-    val importFoodLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.importFoodsCsv(it) }
-    }
-
-    val exportRecipeLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri: Uri? ->
-        uri?.let { viewModel.exportRecipesCsv(it) }
-    }
-
-    val importRecipeLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.importRecipesCsv(it) }
-    }
-
-    val exportJsonLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri: Uri? ->
-        uri?.let { viewModel.exportBackup(it) }
-    }
-
-    val importJsonLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.importBackup(it) }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        // Section Apparence
-        SettingsSection(title = stringResource(id = R.string.appearance_section)) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(id = R.string.display_mode), style = MaterialTheme.typography.bodyMedium)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.tab_settings)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = padding.calculateTopPadding())
+                .verticalScroll(rememberScrollState())
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(Dimens.screenPadding),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceL)
+        ) {
+            SettingsCard(title = stringResource(R.string.appearance_section)) {
+                Text(stringResource(R.string.display_mode), style = MaterialTheme.typography.bodyMedium)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     ThemeMode.entries.forEachIndexed { index, mode ->
                         SegmentedButton(
@@ -112,219 +121,131 @@ fun SettingsScreen(viewModel: GlucoCalculateurViewModel) {
                             onClick = { viewModel.setThemeMode(mode) },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
                             label = {
-                                Text(when (mode) {
-                                    ThemeMode.LIGHT -> stringResource(id = R.string.theme_light)
-                                    ThemeMode.DARK -> stringResource(id = R.string.theme_dark)
-                                    ThemeMode.AUTO -> stringResource(id = R.string.theme_auto)
-                                })
+                                Text(
+                                    stringResource(
+                                        when (mode) {
+                                            ThemeMode.LIGHT -> R.string.theme_light
+                                            ThemeMode.DARK -> R.string.theme_dark
+                                            ThemeMode.AUTO -> R.string.theme_auto
+                                        }
+                                    )
+                                )
                             }
                         )
                     }
                 }
             }
-        }
 
-        // Section Langue
-        SettingsSection(title = stringResource(id = R.string.language_region_section)) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppLanguage.entries.forEach { lang ->
-                    Surface(
-                        onClick = { if (lang != language) lang.apply() },
-                        shape = MaterialTheme.shapes.medium,
-                        color = if (language == lang) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+            SettingsCard(title = stringResource(R.string.language_region_section)) {
+                Column(modifier = Modifier.selectableGroup()) {
+                    AppLanguage.entries.forEach { lang ->
                         Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = lang == language,
+                                    role = Role.RadioButton,
+                                    onClick = { if (lang != language) lang.apply() }
+                                )
+                                .padding(vertical = Dimens.spaceXs),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(lang.nativeName ?: stringResource(R.string.language_system), style = MaterialTheme.typography.bodyLarge)
-                            if (language == lang) {
-                                Icon(Icons.Default.Check, contentDescription = null)
-                            }
+                            RadioButton(selected = lang == language, onClick = null)
+                            Spacer(Modifier.width(Dimens.spaceM))
+                            Text(
+                                lang.nativeName ?: stringResource(R.string.language_system),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         }
                     }
                 }
-                Text(
-                    text = stringResource(id = R.string.number_format_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
+                Hint(stringResource(R.string.number_format_note))
+            }
+
+            SettingsCard(title = stringResource(R.string.food_csv_section)) {
+                ImportExportRow(
+                    onExport = { exportFoods.launch(exportFileName("foods", "csv")) },
+                    onImport = { importFoods.launch(CSV_TYPES) }
                 )
+                Hint(stringResource(R.string.food_csv_format_hint))
             }
-        }
 
-        // Section Aliments (CSV)
-        SettingsSection(title = stringResource(id = R.string.food_csv_section)) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { exportFoodLauncher.launch("aliments.csv") },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        Icon(Icons.Default.Download, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(id = R.string.export_btn))
-                    }
-
-                    OutlinedButton(
-                        onClick = { importFoodLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/octet-stream")) },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        Icon(Icons.Default.Upload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(id = R.string.import_btn))
-                    }
-                }
-                Text(
-                    text = stringResource(id = R.string.food_csv_format_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            SettingsCard(title = stringResource(R.string.recipe_csv_section)) {
+                ImportExportRow(
+                    onExport = { exportRecipes.launch(exportFileName("recipes", "csv")) },
+                    onImport = { importRecipes.launch(CSV_TYPES) }
                 )
+                Hint(stringResource(R.string.recipe_csv_format_hint))
             }
-        }
 
-        // Section Recettes (CSV)
-        SettingsSection(title = stringResource(id = R.string.recipe_csv_section)) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { exportRecipeLauncher.launch("recettes.csv") },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        Icon(Icons.Default.Download, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(id = R.string.export_btn))
-                    }
-
-                    OutlinedButton(
-                        onClick = { importRecipeLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/octet-stream")) },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        Icon(Icons.Default.Upload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(id = R.string.import_btn))
-                    }
-                }
-                Text(
-                    text = stringResource(id = R.string.recipe_csv_format_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            SettingsCard(title = stringResource(R.string.backup_json_section)) {
+                ImportExportRow(
+                    onExport = { exportBackup.launch(exportFileName("backup", "json")) },
+                    onImport = { importBackup.launch(JSON_TYPES) }
                 )
+                Hint(stringResource(R.string.export_json_subtitle))
             }
-        }
 
-        // Section Sauvegarde complète (JSON)
-        SettingsSection(title = stringResource(id = R.string.backup_json_section)) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = { exportJsonLauncher.launch("gluco_data.json") },
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(id = R.string.export_json_title), style = MaterialTheme.typography.bodyLarge)
-                        Text(stringResource(id = R.string.export_json_subtitle), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = { importJsonLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
-                    modifier = Modifier.fillMaxWidth(),
-                    contentPadding = PaddingValues(16.dp)
-                ) {
-                    Icon(Icons.Default.Upload, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(horizontalAlignment = Alignment.Start, modifier = Modifier.weight(1f)) {
-                        Text(stringResource(id = R.string.import_json_title), style = MaterialTheme.typography.bodyLarge)
-                        Text(stringResource(id = R.string.import_json_subtitle), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        }
-
-        // Section Crédits
-        val packageInfo = remember {
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
-                } else {
-                    @Suppress("DEPRECATION")
-                    context.packageManager.getPackageInfo(context.packageName, 0)
-                }
-            } catch (_: Exception) {
-                null
-            }
-        }
-        val versionName = packageInfo?.versionName ?: "1.0"
-
-        SettingsSection(title = stringResource(id = R.string.credits_section)) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                Text(
-                    text = stringResource(id = R.string.version_label, versionName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = stringResource(id = R.string.ai_designed_text),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-
-                Column {
-                    Text(
-                        text = stringResource(id = R.string.technologies_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(id = R.string.technologies_list),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                TextButton(
-                    onClick = { runCatching { uriHandler.openUri(GITHUB_URL) } },
-                    modifier = Modifier.padding(start = 0.dp),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(id = R.string.github_link),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textDecoration = TextDecoration.Underline
-                    )
-                }
-            }
+            CreditsCard()
         }
     }
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        content()
-        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+private fun CreditsCard() {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val versionName = remember {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }.versionName
+        }.getOrNull() ?: "?"
     }
+    SettingsCard(title = stringResource(R.string.credits_section)) {
+        Text(stringResource(R.string.version_label, versionName), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            stringResource(R.string.ai_designed_text),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.secondary
+        )
+        HorizontalDivider()
+        Text(
+            stringResource(R.string.technologies_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(stringResource(R.string.technologies_list), style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = { runCatching { uriHandler.openUri(GITHUB_URL) } }) {
+            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
+            Spacer(Modifier.width(Dimens.spaceS))
+            Text(stringResource(R.string.github_link))
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.spaceL),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spaceM)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

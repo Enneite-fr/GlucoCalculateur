@@ -50,7 +50,7 @@ object JsonBackupCodec {
 
     /** Décode une sauvegarde ; lève [org.json.JSONException] si le texte n'est pas un objet JSON. */
     fun decode(text: String): DecodedBackup {
-        val json = JSONObject(text.removePrefix("﻿"))
+        val json = JSONObject(text.removePrefix("\uFEFF"))
         val issues = mutableListOf<ImportIssue>()
 
         val foods = json.objects("foods").mapNotNull { obj ->

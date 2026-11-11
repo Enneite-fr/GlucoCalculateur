@@ -28,7 +28,7 @@ object TextDecoding {
         } catch (_: CharacterCodingException) {
             String(content, legacyCharset)
         }
-        return text.removePrefix("﻿")
+        return text.removePrefix("\uFEFF")
     }
 }
 

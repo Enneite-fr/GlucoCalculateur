@@ -56,7 +56,7 @@ class CsvCodecTest {
     fun writeThenReadRoundTrip() {
         val foods = listOf(FoodRow("Pomme", 12.5), FoodRow("Sauce \"maison\"; tomate", 7.0))
         val text = CsvCodec.writeFoods(foods, listOf("Aliment", "Glucides"), ',')
-        assertTrue(text.startsWith("﻿Aliment;Glucides\r\n"))
+        assertTrue(text.startsWith("\uFEFFAliment;Glucides\r\n"))
         assertTrue(text.contains("Pomme;12,5\r\n"))
         assertEquals(foods, CsvCodec.parseFoods(TextDecoding.decode(text.toByteArray())).rows)
 

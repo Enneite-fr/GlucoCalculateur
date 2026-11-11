@@ -5,16 +5,10 @@
     <string name="tab_food">Food</string>
     <string name="add_food">Add Food</string>
     <string name="food_name">Food Name</string>
-    <string name="carbs_per_100g">g of Carbs / 100 g</string>
     <string name="cancel">Cancel</string>
     <string name="add">Add</string>
     <string name="delete">Delete</string>
     <string name="tab_settings">Settings</string>
-    <string name="total_carbs_prefix">Total: %1$s g of Carbs</string>
-    <string name="carbs_unit">g of Carbs</string>
-    <string name="meal_details_title">Meal Details:</string>
-    <string name="no_meals_saved">No meals saved</string>
-    <string name="delete_meal_confirm_title">Delete meal?</string>
     <string name="delete_confirm_msg">Do you really want to delete \'%1$s\'?</string>
     <plurals name="cascade_delete_warning">
         <item quantity="one">This will also delete %d recipe that uses this food. Saved meals are kept.</item>
@@ -25,14 +19,12 @@
         <item quantity="other">Used by %d meals, which will be kept.</item>
     </plurals>
     <string name="my_meals_title">My Meals</string>
-    <string name="composition_title">Composition:</string>
-    <string name="total_weight_prefix">Total weight: %1$s</string>
-    <string name="carbs_per_100g_format">%1$s g of Carbs / 100 g</string>
+    <string name="total_weight_prefix">Weight: %1$s</string>
     <string name="appearance_section">Appearance</string>
     <string name="display_mode">Display mode</string>
     <string name="language_region_section">Language &amp; Region</string>
     <string name="number_format_note">Number format (e.g. 10.5 vs 10,5) adapts automatically to the selected region.</string>
-    <string name="search_placeholder">Search...</string>
+    <string name="search_placeholder">Search…</string>
     <string name="delete_food_confirm_title">Delete food?</string>
     <string name="delete_recipe_confirm_title">Delete recipe?</string>
     <string name="save_btn">Save</string>
@@ -51,16 +43,13 @@
     <string name="edit_recipe_title">Edit Recipe</string>
     <string name="recipe_name_label">Recipe Name</string>
     <string name="ingredients_title">Ingredients</string>
-    <string name="add_ingredient_desc">Add ingredient</string>
     <string name="add_ingredient_dialog_title">Add an ingredient</string>
     <string name="weight_label">Weight (g)</string>
     <string name="validate_btn">Validate</string>
     <string name="new_meal_title">New Meal</string>
     <string name="edit_meal_title">Edit Meal</string>
     <string name="meal_name_label">Meal Name</string>
-    <string name="add_item_desc">Add item</string>
     <string name="unknown_food">Unknown food</string>
-    <string name="unknown_recipe">Unknown recipe</string>
     <string name="add_to_meal_title">Add to meal</string>
     <string name="breakfast">Breakfast</string>
     <string name="lunch">Lunch</string>
@@ -79,10 +68,7 @@
     <string name="import_btn">Import</string>
     <string name="food_csv_format_hint">Format: Name ; Carbs (per 100g)</string>
     <string name="recipe_csv_format_hint">Format: Recipe Name ; Ingredient ; Weight (g)</string>
-    <string name="export_json_title">Export JSON</string>
     <string name="export_json_subtitle">Full backup of foods, recipes and meals</string>
-    <string name="import_json_title">Import JSON</string>
-    <string name="import_json_subtitle">Restore from a JSON file</string>
     <string name="csv_header_food">Food</string>
     <string name="csv_header_carbs">Carbs per 100 g</string>
     <string name="csv_header_recipe">Recipe</string>
@@ -117,4 +103,54 @@
     <string name="issue_empty_meal">Meal “%1$s” skipped: no usable item</string>
     <string name="issue_partial_meal">Meal “%1$s” imported without some items that could not be found</string>
     <string name="language_system">System</string>
+    <string name="grams_unit">g</string>
+    <string name="grams_format">%1$s g</string>
+    <string name="carbs_format">%1$s g of carbs</string>
+    <string name="carbs_per_100g_short">%1$s g / 100 g</string>
+    <string name="carbs_value_label">carbs</string>
+    <string name="carbs_label">Carbohydrates</string>
+    <string name="per_100g_suffix">g / 100 g</string>
+    <string name="carbs_preview">= %1$s</string>
+    <string name="edit">Edit</string>
+    <string name="edit_weight">Edit weight</string>
+    <string name="remove_item">Remove %1$s</string>
+    <string name="more_actions">More actions</string>
+    <string name="show_details">Show details</string>
+    <string name="collapse">Hide details</string>
+    <plurals name="meal_items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <plurals name="ingredients_count">
+        <item quantity="one">%d ingredient</item>
+        <item quantity="other">%d ingredients</item>
+    </plurals>
+    <plurals name="items_added">
+        <item quantity="one">%d added</item>
+        <item quantity="other">%d added</item>
+    </plurals>
+    <string name="item_added">“%1$s” added</string>
+    <string name="picker_done">Done</string>
+    <string name="no_meals_day">No meals on this day</string>
+    <string name="add_meal_btn">Add a meal</string>
+    <string name="no_recipes">No recipes yet</string>
+    <string name="create_recipe">Create a recipe</string>
+    <string name="no_foods">No foods</string>
+    <string name="no_results">No results for “%1$s”</string>
+    <string name="open_calendar">Choose a date</string>
+    <string name="composition_section">Composition</string>
+    <string name="composition_empty_hint">Add foods or recipes: the carbs are calculated as you go.</string>
+    <string name="total_carbs_label">Total carbs</string>
+    <string name="error_name_required">Enter a name</string>
+    <string name="error_items_required">Add at least one item</string>
+    <string name="error_ingredients_required">Add at least one ingredient</string>
+    <string name="error_value_required">Enter a value</string>
+    <string name="error_max_value">Maximum: %1$s</string>
+    <string name="error_positive">Must be greater than 0</string>
+    <string name="food_exists_update">“%1$s” already exists (%2$s). Saving will update it.</string>
+    <string name="food_name_taken">Another food already has this name</string>
+    <string name="update_btn">Update</string>
+    <string name="discard_changes_title">Discard your changes?</string>
+    <string name="discard">Discard</string>
+    <string name="keep_editing">Keep editing</string>
 </resources>

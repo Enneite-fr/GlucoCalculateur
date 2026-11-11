@@ -66,7 +66,7 @@ object CsvCodec {
         val issues = mutableListOf<ImportIssue>()
         var firstUsefulLine = true
         text.lineSequence().forEachIndexed { index, rawLine ->
-            val line = rawLine.replace("﻿", "").trim()
+            val line = rawLine.replace("\uFEFF", "").trim()
             if (line.isEmpty() || line.startsWith("#")) return@forEachIndexed
             val lineNumber = index + 1
             val isFirst = firstUsefulLine
@@ -119,7 +119,7 @@ object CsvCodec {
     }
 
     private fun write(header: List<String>, rows: List<List<String>>): String = buildString {
-        append('﻿')
+        append('\uFEFF')
         append(header.joinToString(SEPARATOR.toString(), transform = ::escape)).append(LINE_END)
         rows.forEach { append(it.joinToString(SEPARATOR.toString(), transform = ::escape)).append(LINE_END) }
     }
