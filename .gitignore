@@ -16,3 +16,6 @@ local.properties
 
 # Binaires de release (publiés via GitHub Releases)
 app/release/
+
+# Cache du compilateur Kotlin
+.kotlin/
